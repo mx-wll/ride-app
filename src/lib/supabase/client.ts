@@ -1,7 +1,8 @@
 import { createBrowserClient } from '@supabase/ssr'
 import { Database } from './types'
+import { SupabaseClient } from '@supabase/supabase-js'
 
-let client: ReturnType<typeof createBrowserClient<Database>> | null = null
+let client: SupabaseClient<Database> | null = null
 
 // Remote database connection test function
 export async function testDatabaseConnection() {
@@ -37,32 +38,15 @@ export function createClient() {
 
   console.log('Connecting to Supabase at URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
   
-  client = createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        get(name: string) {
-          return document.cookie
-            .split('; ')
-            .find((row) => row.startsWith(`${name}=`))
-            ?.split('=')[1]
-        },
-        set(name: string, value: string, options: { path?: string; maxAge?: number; domain?: string; secure?: boolean }) {
-          document.cookie = `${name}=${value}; path=${options.path || '/'}`
-        },
-        remove(name: string, options: { path?: string }) {
-          document.cookie = `${name}=; path=${options.path || '/'}; max-age=0`
-        },
-      },
-      // Force remote database usage - don't use local storage
-      persistSession: false,
-      autoRefreshToken: true,
-      global: {
-        fetch: fetch.bind(globalThis)
-      }
-    }
-  )
+  try {
+    client = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    ) as SupabaseClient<Database>
 
-  return client
+    return client
+  } catch (error) {
+    console.error('Failed to create Supabase client:', error)
+    return null
+  }
 } 
