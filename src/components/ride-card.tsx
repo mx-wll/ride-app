@@ -16,14 +16,6 @@ interface User {
   avatar_url?: string
 }
 
-interface RideParticipant {
-  user_id: string
-  users: {
-    full_name: string
-    avatar_url?: string
-  }
-}
-
 interface Ride {
   id: string
   title: string
@@ -67,7 +59,7 @@ export function RideCard({
           .from('ride_participants')
           .select(`
             user_id,
-            users (
+            users!inner (
               full_name,
               avatar_url
             )
@@ -80,7 +72,16 @@ export function RideCard({
         }
 
         if (participantsData) {
-          const processedUsers = participantsData.map((p: any) => ({
+          // Type assertion to unknown first, then to our expected type
+          const typedData = participantsData as unknown as Array<{
+            user_id: string
+            users: {
+              full_name: string
+              avatar_url?: string
+            }
+          }>
+
+          const processedUsers = typedData.map(p => ({
             id: p.user_id,
             full_name: p.users.full_name,
             email: '', // Email is not needed for avatar display

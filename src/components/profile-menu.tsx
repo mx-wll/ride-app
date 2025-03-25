@@ -11,7 +11,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 
 interface User {
@@ -23,12 +22,6 @@ interface User {
 
 interface ProfileMenuProps {
   user: User
-}
-
-interface RiderStats {
-  totalRides: number
-  totalDistance: number
-  averagePace: string
 }
 
 export function ProfileMenu({ user }: ProfileMenuProps) {
