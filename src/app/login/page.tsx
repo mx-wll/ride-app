@@ -17,14 +17,16 @@ export default function LoginPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        router.push('/rides');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === "SIGNED_IN") router.push("/rides");
       }
+    );
+
+    return () => {
+      subscription.unsubscribe();
     };
-    checkSession();
-  }, [router]);
+  }, [supabase.auth, router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

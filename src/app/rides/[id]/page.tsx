@@ -76,10 +76,8 @@ export default function RideDetailPage() {
   };
 
   useEffect(() => {
-    if (params.id) {
-      fetchRide();
-    }
-  }, [params.id]);
+    fetchRide();
+  }, [params.id, fetchRide]);
 
   const handleJoinRide = async () => {
     if (!currentUser || !ride || isUpdating) return;

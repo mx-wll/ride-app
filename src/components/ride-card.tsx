@@ -8,7 +8,6 @@ import { MapPin, Calendar, Bike, Gauge } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { useEffect, useState } from "react"
-import { PostgrestError } from '@supabase/supabase-js'
 
 interface User {
   id: string
@@ -27,15 +26,6 @@ interface Ride {
   bike_type: string
   created_by: string
   created_at: string
-}
-
-interface RideParticipantResponse {
-  ride_id: string;
-  user_id: string;
-  users: {
-    full_name: string;
-    avatar_url?: string;
-  };
 }
 
 interface RideCardProps {

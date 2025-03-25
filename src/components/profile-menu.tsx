@@ -20,6 +20,7 @@ interface User {
   full_name: string
   email: string
   avatar_url?: string
+  social_url?: string
 }
 
 interface RiderStats {
@@ -40,6 +41,8 @@ export function ProfileMenu({ user }: ProfileMenuProps) {
     totalDistance: 0,
     averagePace: "Race",
   })
+  const [fullName, setFullName] = useState(user.full_name || '')
+  const [socialUrl, setSocialUrl] = useState(user.social_url || '')
 
   useEffect(() => {
     console.log("ProfileMenu - User data:", user);
@@ -82,6 +85,13 @@ export function ProfileMenu({ user }: ProfileMenuProps) {
 
     fetchStats()
   }, [supabase, user.id])
+
+  useEffect(() => {
+    if (user) {
+      setFullName(user.full_name || '');
+      setSocialUrl(user.social_url || '');
+    }
+  }, [user]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
