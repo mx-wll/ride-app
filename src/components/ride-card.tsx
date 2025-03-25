@@ -17,6 +17,14 @@ interface User {
   avatar_url?: string
 }
 
+interface RideParticipant {
+  user_id: string
+  users: {
+    full_name: string
+    avatar_url?: string
+  }
+}
+
 interface Ride {
   id: string
   title: string
@@ -62,9 +70,8 @@ export function RideCard({
         const { data: participantsData, error } = await supabase
           .from('ride_participants')
           .select(`
-            ride_id,
             user_id,
-            users!inner (
+            users (
               full_name,
               avatar_url
             )
@@ -77,7 +84,7 @@ export function RideCard({
         }
 
         if (participantsData) {
-          const processedUsers: User[] = participantsData.map(p => ({
+          const processedUsers: User[] = participantsData.map((p: RideParticipant) => ({
             id: p.user_id,
             full_name: p.users.full_name,
             email: '', // Email is not needed for avatar display
@@ -95,30 +102,23 @@ export function RideCard({
   }, [ride.id, supabase, isJoining]);
 
   useEffect(() => {
-    if (!supabase) {
-      setError('Unable to connect to the database');
-      setIsLoading(false);
-      return;
-    }
-
     const fetchCreator = async () => {
+      if (!supabase) return;
+      
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('id, full_name, avatar_url')
+          .select('id, full_name, email, avatar_url')
           .eq('id', ride.created_by)
           .single();
 
         if (error) throw error;
 
         if (data) {
-          setCreator(data);
+          setCreator(data as User);
         }
       } catch (err) {
         console.error('Error fetching creator:', err);
-        setError('Failed to load ride creator');
-      } finally {
-        setIsLoading(false);
       }
     };
 
