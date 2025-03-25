@@ -8,6 +8,7 @@ import { MapPin, Calendar, Bike, Gauge } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { useEffect, useState } from "react"
+import Link from 'next/link'
 
 interface User {
   id: string
@@ -49,6 +50,9 @@ export function RideCard({
   const [participants, setParticipants] = useState<User[]>([])
   const supabase = createClient()
   const [isJoining, setIsJoining] = useState(false)
+  const [creator, setCreator] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchParticipants = async () => {
@@ -89,6 +93,37 @@ export function RideCard({
 
     fetchParticipants();
   }, [ride.id, supabase, isJoining]);
+
+  useEffect(() => {
+    if (!supabase) {
+      setError('Unable to connect to the database');
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchCreator = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, full_name, avatar_url')
+          .eq('id', ride.created_by)
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setCreator(data);
+        }
+      } catch (err) {
+        console.error('Error fetching creator:', err);
+        setError('Failed to load ride creator');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCreator();
+  }, [supabase, ride.created_by]);
 
   const handleJoinLeave = async () => {
     if (isJoining) return; // Prevent multiple clicks

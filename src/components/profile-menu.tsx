@@ -14,6 +14,8 @@ import { Avatar, AvatarFallback, AvatarImage, getAvatarGradient } from '@/compon
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
+import { useUser } from '@/contexts/UserContext'
+import { toast } from 'sonner'
 
 interface User {
   id: string
@@ -35,16 +37,22 @@ interface ProfileMenuProps {
 
 export function ProfileMenu({ user }: ProfileMenuProps) {
   const router = useRouter()
-  const supabase = createClient()
+  const { user: contextUser } = useUser()
   const [stats, setStats] = useState<RiderStats>({
     totalRides: 0,
     totalDistance: 0,
     averagePace: "Race",
   })
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const supabase = createClient()
 
   useEffect(() => {
-    console.log("ProfileMenu - User data:", user);
-    console.log("ProfileMenu - Avatar URL:", user.avatar_url);
+    if (!supabase) {
+      setError('Unable to connect to the database')
+      setIsLoading(false)
+      return
+    }
 
     const fetchStats = async () => {
       if (!supabase) return;

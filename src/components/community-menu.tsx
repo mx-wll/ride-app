@@ -23,15 +23,18 @@ interface User {
 
 export function CommunityMenu() {
   const [users, setUsers] = useState<User[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const supabase = createClient()
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      const supabase = createClient()
-      if (!supabase) {
-        console.error('Failed to initialize Supabase client')
-        return
-      }
+    if (!supabase) {
+      setError('Unable to connect to the database')
+      setIsLoading(false)
+      return
+    }
 
+    const fetchUsers = async () => {
       try {
         const { data, error } = await supabase
           .from('users')
@@ -42,13 +45,35 @@ export function CommunityMenu() {
         if (data) {
           setUsers(data)
         }
-      } catch (error) {
-        console.error('Error fetching users:', error)
+      } catch (err) {
+        console.error('Error fetching users:', err)
+        setError('Failed to load community members')
+      } finally {
+        setIsLoading(false)
       }
     }
 
     fetchUsers()
-  }, [])
+  }, [supabase])
+
+  if (isLoading) {
+    return <div>Loading community...</div>
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-md bg-red-50 p-4">
+        <div className="flex">
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-red-800">Error</h3>
+            <div className="mt-2 text-sm text-red-700">
+              <p>{error}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <DropdownMenu>

@@ -14,49 +14,54 @@ export default function NewRideForm({ groups }: { groups: Group[] }) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const supabase = createClient()
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!supabase) {
+      setError('Unable to connect to the database')
+      return
+    }
+
     setIsSubmitting(true)
     setError(null)
-    
-    const formData = new FormData(e.currentTarget)
-    const rideTime = new Date(formData.get('date') as string)
-    rideTime.setHours(parseInt(formData.get('time') as string))
-    
-    const supabase = createClient()
-    
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setError('You must be logged in to create a ride')
-      setIsSubmitting(false)
-      return
-    }
-    
-    const { error } = await supabase
-      .from('rides')
-      .insert({
-        title: formData.get('title') as string,
-        description: formData.get('description') as string || null,
-        start_location: formData.get('start_location') as string,
-        distance: parseFloat(formData.get('distance') as string),
-        bike_type: formData.get('bike_type') as string || 'road',
-        pace: formData.get('pace') as string || 'casual',
-        ride_time: rideTime.toISOString(),
-        created_by: user.id,
-        created_at: new Date().toISOString()
-      })
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setError('You must be logged in to create a ride')
+        return
+      }
+
+      const formData = new FormData(e.currentTarget)
+      const rideTime = new Date(formData.get('date') as string)
+      rideTime.setHours(parseInt(formData.get('time') as string))
       
-    if (error) {
-      console.error('Error creating ride:', error)
-      setError(error.message)
+      const { error: insertError } = await supabase
+        .from('rides')
+        .insert({
+          title: formData.get('title') as string,
+          description: formData.get('description') as string || null,
+          start_location: formData.get('start_location') as string,
+          distance: parseFloat(formData.get('distance') as string),
+          bike_type: formData.get('bike_type') as string || 'road',
+          pace: formData.get('pace') as string || 'casual',
+          ride_time: rideTime.toISOString(),
+          created_by: user.id,
+          created_at: new Date().toISOString()
+        })
+      
+      if (insertError) throw insertError
+
+      toast.success('Ride created successfully!')
+      router.push('/rides')
+      router.refresh()
+    } catch (err) {
+      console.error('Error creating ride:', err)
+      setError('Failed to create ride')
+    } finally {
       setIsSubmitting(false)
-      return
     }
-    
-    toast.success('Ride created successfully!')
-    router.push('/rides')
-    router.refresh()
   }
   
   // Set default date to tomorrow at 9am
