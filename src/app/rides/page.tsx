@@ -38,15 +38,30 @@ interface RideParticipant {
 
 export default function RidesPage() {
   const router = useRouter()
-  const supabase = createClient()
+  const [supabase, setSupabase] = useState<ReturnType<typeof createClient> | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [rides, setRides] = useState<Ride[]>([])
   const [participants, setParticipants] = useState<RideParticipant[]>([])
   const [sheetOpen, setSheetOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
+  // Initialize Supabase client
+  useEffect(() => {
+    try {
+      const client = createClient()
+      setSupabase(client)
+    } catch (error) {
+      console.error("Failed to initialize Supabase client:", error)
+      toast.error("Failed to connect to database")
+    }
+  }, [])
+
   const fetchRides = useCallback(async () => {
-    if (!supabase) return
+    if (!supabase) {
+      toast.error("Database connection not available")
+      return
+    }
+
     try {
       setIsLoading(true)
       const { data: ridesData, error: ridesError } = await supabase

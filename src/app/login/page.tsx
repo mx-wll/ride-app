@@ -14,7 +14,18 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
+  const [supabase, setSupabase] = useState<ReturnType<typeof createClient> | null>(null);
+
+  // Initialize Supabase client
+  useEffect(() => {
+    try {
+      const client = createClient();
+      setSupabase(client);
+    } catch (error) {
+      console.error("Failed to initialize Supabase client:", error);
+      setError("Failed to connect to database");
+    }
+  }, []);
 
   useEffect(() => {
     if (!supabase) return;
@@ -35,7 +46,10 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!supabase) return;
+    if (!supabase) {
+      setError("Database connection not available");
+      return;
+    }
 
     setIsLoading(true);
     setError(null);

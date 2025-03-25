@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,10 +13,26 @@ export default function SignUpPage() {
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const supabase = createClient();
+  const [supabase, setSupabase] = useState<ReturnType<typeof createClient> | null>(null);
+
+  // Initialize Supabase client
+  useEffect(() => {
+    try {
+      const client = createClient();
+      setSupabase(client);
+    } catch (error) {
+      console.error("Failed to initialize Supabase client:", error);
+      setError("Failed to connect to database");
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!supabase) {
+      setError("Database connection not available");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -40,21 +56,19 @@ export default function SignUpPage() {
         } else {
           setError(signUpError.message);
         }
-        setIsLoading(false);
         return;
       }
 
       if (!data.user) {
         setError('Failed to create user account');
-        setIsLoading(false);
         return;
       }
 
       toast.success('Verification email sent! Please check your inbox.');
-      setIsLoading(false);
     } catch (err) {
       console.error('Error in sign up:', err);
       setError('An unexpected error occurred. Please try again.');
+    } finally {
       setIsLoading(false);
     }
   };
