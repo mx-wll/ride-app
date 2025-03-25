@@ -1,29 +1,82 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Database } from '@/lib/supabase/types'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
-type Ride = Database['public']['Tables']['rides']['Row'] & {
-  groups: { name: string }
-  users: { name: string }
-  ride_participants: Array<{
-    status: string
-    users: { name: string }
-  }>
+interface User {
+  id: string
+  name?: string
+  avatar_url?: string
+  status: 'accepted' | 'pending' | 'declined'
 }
 
-export default function RideParticipants({ ride }: { ride: Ride }) {
+interface RideParticipant {
+  user_id: string
+  status: 'accepted' | 'pending' | 'declined'
+  users: {
+    id: string
+    full_name: string
+    avatar_url: string | null
+  }
+}
+
+interface RideParticipantsProps {
+  rideId: string
+}
+
+export default function RideParticipants({ rideId }: RideParticipantsProps) {
   const router = useRouter()
   const [isUpdating, setIsUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
+  const [participants, setParticipants] = useState<User[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const supabase = createClient()
+
+  useEffect(() => {
+    if (!supabase) return
+
+    const fetchParticipants = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('ride_participants')
+          .select(`
+            user_id,
+            status,
+            users (
+              id,
+              full_name,
+              avatar_url
+            )
+          `)
+          .eq('ride_id', rideId)
+
+        if (error) throw error
+
+        if (data) {
+          const formattedParticipants = data.map(participant => ({
+            id: (participant as unknown as RideParticipant).users.id,
+            name: (participant as unknown as RideParticipant).users.full_name,
+            avatar_url: (participant as unknown as RideParticipant).users.avatar_url || undefined,
+            status: (participant as unknown as RideParticipant).status
+          }))
+          setParticipants(formattedParticipants)
+        }
+      } catch (error) {
+        console.error('Error fetching participants:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchParticipants()
+  }, [rideId, supabase])
+
   async function updateStatus(status: 'accepted' | 'declined') {
+    if (!supabase) return
     setIsUpdating(true)
     setError(null)
-    
-    const supabase = createClient()
     
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
@@ -32,28 +85,58 @@ export default function RideParticipants({ ride }: { ride: Ride }) {
       return
     }
     
-    const { error } = await supabase
+    const { error: updateError } = await supabase
       .from('ride_participants')
       .upsert({
-        ride_id: ride.id,
+        ride_id: rideId,
         user_id: user.id,
         status,
       })
       
-    if (error) {
-      setError(error.message)
+    if (updateError) {
+      setError(updateError.message)
       setIsUpdating(false)
       return
+    }
+    
+    // Refresh participants list
+    const { data: updatedData, error: fetchError } = await supabase
+      .from('ride_participants')
+      .select(`
+        user_id,
+        status,
+        users (
+          id,
+          full_name,
+          avatar_url
+        )
+      `)
+      .eq('ride_id', rideId)
+
+    if (fetchError) throw fetchError
+
+    if (updatedData) {
+      const formattedParticipants = updatedData.map(participant => ({
+        id: (participant as unknown as RideParticipant).users.id,
+        name: (participant as unknown as RideParticipant).users.full_name,
+        avatar_url: (participant as unknown as RideParticipant).users.avatar_url || undefined,
+        status: (participant as unknown as RideParticipant).status
+      }))
+      setParticipants(formattedParticipants)
     }
     
     router.refresh()
     setIsUpdating(false)
   }
   
-  const acceptedParticipants = ride.ride_participants.filter(p => p.status === 'accepted')
-  const pendingParticipants = ride.ride_participants.filter(p => p.status === 'pending')
-  const declinedParticipants = ride.ride_participants.filter(p => p.status === 'declined')
+  const acceptedParticipants = participants.filter(p => p.status === 'accepted')
+  const pendingParticipants = participants.filter(p => p.status === 'pending')
+  const declinedParticipants = participants.filter(p => p.status === 'declined')
   
+  if (isLoading) {
+    return <div>Loading participants...</div>
+  }
+
   return (
     <div>
       <div className="border-b border-gray-200 pb-5">
@@ -65,57 +148,42 @@ export default function RideParticipants({ ride }: { ride: Ride }) {
           {acceptedParticipants.length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-gray-500">Going ({acceptedParticipants.length})</h4>
-              <ul role="list" className="mt-3 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+              <div className="flex flex-wrap gap-2">
                 {acceptedParticipants.map((participant) => (
-                  <li key={participant.users.name} className="col-span-1 flex rounded-md shadow-sm">
-                    <div className="flex flex-1 items-center justify-between truncate rounded-md border border-gray-200 bg-white">
-                      <div className="flex-1 truncate px-4 py-2 text-sm">
-                        <p className="font-medium text-gray-900 hover:text-gray-600">
-                          {participant.users.name}
-                        </p>
-                      </div>
-                    </div>
-                  </li>
+                  <Avatar key={participant.id} className="h-8 w-8">
+                    <AvatarImage src={participant.avatar_url || ''} alt={participant.name || 'User'} />
+                    <AvatarFallback>{participant.name?.[0] || 'U'}</AvatarFallback>
+                  </Avatar>
                 ))}
-              </ul>
+              </div>
             </div>
           )}
           
           {pendingParticipants.length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-gray-500">Pending ({pendingParticipants.length})</h4>
-              <ul role="list" className="mt-3 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+              <div className="flex flex-wrap gap-2">
                 {pendingParticipants.map((participant) => (
-                  <li key={participant.users.name} className="col-span-1 flex rounded-md shadow-sm">
-                    <div className="flex flex-1 items-center justify-between truncate rounded-md border border-gray-200 bg-white">
-                      <div className="flex-1 truncate px-4 py-2 text-sm">
-                        <p className="font-medium text-gray-900 hover:text-gray-600">
-                          {participant.users.name}
-                        </p>
-                      </div>
-                    </div>
-                  </li>
+                  <Avatar key={participant.id} className="h-8 w-8">
+                    <AvatarImage src={participant.avatar_url || ''} alt={participant.name || 'User'} />
+                    <AvatarFallback>{participant.name?.[0] || 'U'}</AvatarFallback>
+                  </Avatar>
                 ))}
-              </ul>
+              </div>
             </div>
           )}
           
           {declinedParticipants.length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-gray-500">Not Going ({declinedParticipants.length})</h4>
-              <ul role="list" className="mt-3 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+              <div className="flex flex-wrap gap-2">
                 {declinedParticipants.map((participant) => (
-                  <li key={participant.users.name} className="col-span-1 flex rounded-md shadow-sm">
-                    <div className="flex flex-1 items-center justify-between truncate rounded-md border border-gray-200 bg-white">
-                      <div className="flex-1 truncate px-4 py-2 text-sm">
-                        <p className="font-medium text-gray-900 hover:text-gray-600">
-                          {participant.users.name}
-                        </p>
-                      </div>
-                    </div>
-                  </li>
+                  <Avatar key={participant.id} className="h-8 w-8">
+                    <AvatarImage src={participant.avatar_url || ''} alt={participant.name || 'User'} />
+                    <AvatarFallback>{participant.name?.[0] || 'U'}</AvatarFallback>
+                  </Avatar>
                 ))}
-              </ul>
+              </div>
             </div>
           )}
         </div>
