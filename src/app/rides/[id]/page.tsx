@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
 import { supabase } from '@/lib/supabase/server';
@@ -46,7 +46,7 @@ export default function RideDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const fetchRide = async () => {
+  const fetchRide = useCallback(async () => {
     try {
       const { data: rideData, error: rideError } = await supabase
         .from('rides')
@@ -73,11 +73,11 @@ export default function RideDetailPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [params.id]);
 
   useEffect(() => {
     fetchRide();
-  }, [params.id, fetchRide]);
+  }, [fetchRide]);
 
   const handleJoinRide = async () => {
     if (!currentUser || !ride || isUpdating) return;

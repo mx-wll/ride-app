@@ -17,19 +17,26 @@ export default function LoginPage() {
   const supabase = createClient();
 
   useEffect(() => {
+    if (!supabase) return;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === "SIGNED_IN") router.push("/rides");
+      (event) => {
+        if (event === "SIGNED_IN") {
+          router.push("/rides");
+          router.refresh();
+        }
       }
     );
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase.auth, router]);
+  }, [supabase, router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!supabase) return;
+
     setIsLoading(true);
     setError(null);
 

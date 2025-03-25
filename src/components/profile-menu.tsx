@@ -41,16 +41,15 @@ export function ProfileMenu({ user }: ProfileMenuProps) {
     totalDistance: 0,
     averagePace: "Race",
   })
-  const [fullName, setFullName] = useState(user.full_name || '')
-  const [socialUrl, setSocialUrl] = useState(user.social_url || '')
 
   useEffect(() => {
     console.log("ProfileMenu - User data:", user);
     console.log("ProfileMenu - Avatar URL:", user.avatar_url);
 
     const fetchStats = async () => {
+      if (!supabase) return;
+      
       try {
-        // Get total rides participated in
         const { data: participatedRides, error: participationError } = await supabase
           .from("ride_participants")
           .select("ride_id")
@@ -58,7 +57,6 @@ export function ProfileMenu({ user }: ProfileMenuProps) {
 
         if (participationError) throw participationError
 
-        // Get details of all rides participated in
         if (participatedRides && participatedRides.length > 0) {
           const rideIds = participatedRides.map((p) => p.ride_id)
           const { data: rides, error: ridesError } = await supabase
@@ -84,16 +82,10 @@ export function ProfileMenu({ user }: ProfileMenuProps) {
     }
 
     fetchStats()
-  }, [supabase, user.id])
-
-  useEffect(() => {
-    if (user) {
-      setFullName(user.full_name || '');
-      setSocialUrl(user.social_url || '');
-    }
-  }, [user]);
+  }, [supabase, user])
 
   const handleSignOut = async () => {
+    if (!supabase) return;
     await supabase.auth.signOut()
     router.replace('/login')
   }
