@@ -1,31 +1,29 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-import { Database } from '@/lib/supabase/types'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import type { Database } from './types'
 
-export function createMiddlewareClient() {
-  const cookieStore = cookies()
-
+export function createMiddlewareClient(req: NextRequest, res: NextResponse) {
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         get(name: string) {
-          return cookieStore.get(name)?.value
+          return req.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({
+          res.cookies.set({
             name,
             value,
             ...options,
           })
         },
         remove(name: string, options: CookieOptions) {
-          cookieStore.set({
+          res.cookies.set({
             name,
             value: '',
             ...options,
-            maxAge: 0,
           })
         },
       },
@@ -33,7 +31,7 @@ export function createMiddlewareClient() {
   )
 }
 
-export async function updateSession() {
-  const client = createMiddlewareClient()
+export async function updateSession(req: NextRequest, res: NextResponse) {
+  const client = createMiddlewareClient(req, res)
   await client.auth.getSession()
 } 

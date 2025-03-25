@@ -1,24 +1,20 @@
-import type { NextConfig } from "next";
-import withPWA from "next-pwa";
+import withPWA from 'next-pwa'
+import { NextConfig } from 'next'
 
-const config = {
+const config: NextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
   images: {
-    domains: ['avatars.githubusercontent.com', 'lh3.googleusercontent.com'],
+    domains: ['avatars.githubusercontent.com'],
   },
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb'
     }
-  }
-} satisfies NextConfig;
+  },
+}
 
-const nextConfig = withPWA({
+export default withPWA({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development'
-})(config);
-
-export default nextConfig;
+})(config)
