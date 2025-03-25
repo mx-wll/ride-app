@@ -8,7 +8,6 @@ import { MapPin, Calendar, Bike, Gauge } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { useEffect, useState } from "react"
-import Link from 'next/link'
 
 interface User {
   id: string
@@ -56,15 +55,12 @@ export function RideCard({
 }: RideCardProps) {
   const isCreator = ride.created_by === currentUser.id
   const [participants, setParticipants] = useState<User[]>([])
-  const supabase = createClient()
   const [isJoining, setIsJoining] = useState(false)
-  const [creator, setCreator] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const supabase = createClient()
 
   useEffect(() => {
     const fetchParticipants = async () => {
-      if (!supabase) return;
+      if (!supabase) return
       
       try {
         const { data: participantsData, error } = await supabase
@@ -76,71 +72,47 @@ export function RideCard({
               avatar_url
             )
           `)
-          .eq('ride_id', ride.id);
+          .eq('ride_id', ride.id)
 
         if (error) {
-          console.error("Error fetching participants:", error);
-          return;
+          console.error("Error fetching participants:", error)
+          return
         }
 
         if (participantsData) {
-          const processedUsers: User[] = participantsData.map((p: RideParticipant) => ({
+          const processedUsers = participantsData.map((p: any) => ({
             id: p.user_id,
             full_name: p.users.full_name,
             email: '', // Email is not needed for avatar display
             avatar_url: p.users.avatar_url
-          }));
+          }))
           
-          setParticipants(processedUsers);
+          setParticipants(processedUsers)
         }
       } catch (error) {
-        console.error('Error in fetchParticipants:', error);
+        console.error('Error in fetchParticipants:', error)
       }
-    };
+    }
 
-    fetchParticipants();
-  }, [ride.id, supabase, isJoining]);
-
-  useEffect(() => {
-    const fetchCreator = async () => {
-      if (!supabase) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('id, full_name, email, avatar_url')
-          .eq('id', ride.created_by)
-          .single();
-
-        if (error) throw error;
-
-        if (data) {
-          setCreator(data as User);
-        }
-      } catch (err) {
-        console.error('Error fetching creator:', err);
-      }
-    };
-
-    fetchCreator();
-  }, [supabase, ride.created_by]);
+    fetchParticipants()
+  }, [ride.id, supabase, isJoining])
 
   const handleJoinLeave = async () => {
-    if (isJoining) return; // Prevent multiple clicks
-    setIsJoining(true);
+    if (isJoining) return // Prevent multiple clicks
+    setIsJoining(true)
     
     try {
       if (isParticipant) {
-        await onLeave(ride.id);
+        await onLeave(ride.id)
       } else {
-        await onJoin(ride.id);
+        await onJoin(ride.id)
       }
     } catch (error) {
-      console.error('Error in handleJoinLeave:', error);
+      console.error('Error in handleJoinLeave:', error)
     } finally {
-      setIsJoining(false);
+      setIsJoining(false)
     }
-  };
+  }
 
   return (
     <Card>
