@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [supabase, setSupabase] = useState<ReturnType<typeof createClient> | null>(null);
 
   // Initialize Supabase client
@@ -26,6 +27,14 @@ export default function LoginPage() {
       setError("Failed to connect to database");
     }
   }, []);
+
+  // Show confirmation message if present
+  useEffect(() => {
+    const message = searchParams.get('message');
+    if (message) {
+      toast.success(message);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!supabase) return;

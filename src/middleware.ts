@@ -33,6 +33,14 @@ export async function middleware(req: NextRequest) {
     }
   )
 
+  // Handle email confirmation
+  if (req.nextUrl.pathname.startsWith('/auth/confirm')) {
+    const redirectUrl = req.nextUrl.clone()
+    redirectUrl.pathname = '/login'
+    redirectUrl.searchParams.set('message', 'Email confirmed! Please sign in.')
+    return NextResponse.redirect(redirectUrl)
+  }
+
   const { data: { session } } = await supabase.auth.getSession()
 
   // Redirect to login if accessing protected routes without authentication
