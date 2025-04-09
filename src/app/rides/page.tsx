@@ -251,7 +251,12 @@ export default function RidesPage() {
               <Button className="fixed bottom-10 left-5 right-5 z-50">Create Ride</Button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-fit">
-              <CreateRideForm onSuccess={() => setSheetOpen(false)} />
+              <CreateRideForm 
+                onSuccess={() => {
+                  setSheetOpen(false);
+                  fetchRides();
+                }}
+              />
             </SheetContent>
           </Sheet>
         </div>
