@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet"
 import { CreateRideForm } from "@/components/create-ride-form"
 import { CommunityMenu } from "@/components/community-menu"
 import { ProfileMenu } from "@/components/profile-menu"
@@ -251,6 +251,12 @@ export default function RidesPage() {
               <Button className="fixed bottom-10 left-5 right-5 z-50">Create Ride</Button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-fit">
+              <SheetHeader>
+                <SheetTitle>Create New Ride</SheetTitle>
+                <SheetDescription>
+                  Fill in the details below to schedule a new group ride.
+                </SheetDescription>
+              </SheetHeader>
               <CreateRideForm 
                 onSuccess={() => {
                   setSheetOpen(false);
