@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { useUser } from "@/contexts/UserContext"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet"
 import { CreateRideForm } from "@/components/create-ride-form"
@@ -10,42 +10,24 @@ import { CommunityMenu } from "@/components/community-menu"
 import { ProfileMenu } from "@/components/profile-menu"
 import { RideCard } from "@/components/ride-card"
 import { toast, Toaster } from "sonner"
+import type { Database } from "@/lib/supabase/types"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
-interface User {
-  id: string
-  full_name: string
-  email: string
-  avatar_url?: string
-}
-
-interface Ride {
-  id: string
-  title: string
-  start_location: string
-  ride_time: string
-  distance: string
-  pace: string
-  bike_type: string
-  created_by: string
-  created_at: string
-}
-
-interface RideParticipant {
-  ride_id: string
-  user_id: string
-  created_at: string
-}
+type UserProfile = Database['public']['Tables']['users']['Row']
+type Ride = Database['public']['Tables']['rides']['Row']
+type RideParticipant = Database['public']['Tables']['ride_participants']['Row']
 
 export default function RidesPage() {
-  const router = useRouter()
-  const [supabase, setSupabase] = useState<ReturnType<typeof createClient> | null>(null)
-  const [user, setUser] = useState<User | null>(null)
+  const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null)
+  const { currentUser: user, isLoading: isUserLoading } = useUser()
+  const [isDataLoading, setIsDataLoading] = useState(true)
   const [rides, setRides] = useState<Ride[]>([])
   const [participants, setParticipants] = useState<RideParticipant[]>([])
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
 
-  // Initialize Supabase client
+  console.log('RidesPage Render Start - isUserLoading:', isUserLoading, 'isDataLoading:', isDataLoading)
+  console.log('RidesPage Render Start - User:', user)
+
   useEffect(() => {
     try {
       const client = createClient()
@@ -57,128 +39,89 @@ export default function RidesPage() {
   }, [])
 
   const fetchRides = useCallback(async () => {
-    if (!supabase) {
-      toast.error("Database connection not available")
-      return
-    }
+    if (!supabase) return
 
+    console.log('fetchRides - Starting...')
+    setIsDataLoading(true)
     try {
-      setIsLoading(true)
-      const { data: ridesData, error: ridesError } = await supabase
-        .from("rides")
-        .select("*")
-        .order("ride_time", { ascending: true })
+      const [ridesResult, participantsResult] = await Promise.all([
+        supabase
+          .from("rides")
+          .select("*")
+          .order("ride_time", { ascending: true }),
+        supabase
+          .from("ride_participants")
+          .select("*"),
+      ])
+
+      const { data: ridesData, error: ridesError } = ridesResult
+      const { data: participantsData, error: participantsError } = participantsResult
+
+      console.log('fetchRides - ridesData:', ridesData)
+      console.log('fetchRides - participantsData:', participantsData)
 
       if (ridesError) throw ridesError
-
-      if (ridesData) {
-        setRides(ridesData)
-      }
-
-      const { data: participantsData, error: participantsError } = await supabase
-        .from("ride_participants")
-        .select("*")
-
       if (participantsError) throw participantsError
 
-      if (participantsData) {
-        setParticipants(participantsData)
-      }
+      setRides(ridesData || [])
+      setParticipants(participantsData || [])
     } catch (error) {
       console.error("Error fetching rides:", error)
       toast.error("Failed to load rides")
     } finally {
-      setIsLoading(false)
+      setIsDataLoading(false)
+      console.log('fetchRides - Finished, isDataLoading set to false')
     }
   }, [supabase])
 
   useEffect(() => {
-    const getUser = async () => {
-      if (!supabase) return
-      try {
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
-        if (authError) throw authError
-
-        if (!user) {
-          router.replace("/login")
-          return
-        }
-
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("id, full_name, email, avatar_url")
-          .eq("id", user.id)
-          .single()
-
-        if (userError) throw userError
-
-        if (userData) {
-          setUser(userData)
-        }
-      } catch (error) {
-        console.error("Error fetching user:", error)
-        toast.error("Failed to load user data")
-        router.replace("/login")
-      }
-    }
-
-    getUser()
-  }, [router, supabase])
-
-  useEffect(() => {
     if (!supabase) return
+    console.log('RidesPage: Supabase client ready, fetching initial rides.')
     fetchRides()
 
     const ridesChannel = supabase
-      .channel("rides")
-      .on(
+      .channel("rides_realtime")
+      .on<Ride>(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "rides",
-        },
-        () => {
+        { event: "*", schema: "public", table: "rides" },
+        (payload) => {
+          console.log('Ride change received!', payload)
           fetchRides()
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('Rides realtime status:', status)
+      })
 
     const participantsChannel = supabase
-      .channel("ride_participants")
-      .on(
+      .channel("participants_realtime")
+      .on<RideParticipant>(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "ride_participants",
-        },
-        () => {
+        { event: "*", schema: "public", table: "ride_participants" },
+        (payload) => {
+          console.log('Participant change received!', payload)
           fetchRides()
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('Participants realtime status:', status)
+      })
 
     return () => {
-      ridesChannel.unsubscribe()
-      participantsChannel.unsubscribe()
+      console.log('RidesPage: Cleaning up realtime subscriptions.')
+      supabase.removeChannel(ridesChannel)
+      supabase.removeChannel(participantsChannel)
     }
   }, [supabase, fetchRides])
 
   const handleJoinRide = async (rideId: string) => {
     if (!user || !supabase) return
-
     try {
       const { error } = await supabase
         .from("ride_participants")
-        .insert({ 
-          ride_id: rideId, 
-          user_id: user.id
-        })
-
+        .insert({ ride_id: rideId, user_id: user.id, status: 'pending' })
       if (error) throw error
       toast.success("Successfully joined the ride!")
-      await fetchRides()
     } catch (error) {
       console.error("Error joining ride:", error)
       toast.error("Failed to join ride")
@@ -187,17 +130,14 @@ export default function RidesPage() {
 
   const handleLeaveRide = async (rideId: string) => {
     if (!user || !supabase) return
-
     try {
       const { error } = await supabase
         .from("ride_participants")
         .delete()
         .eq("ride_id", rideId)
         .eq("user_id", user.id)
-
       if (error) throw error
       toast.success("Successfully left the ride!")
-      await fetchRides()
     } catch (error) {
       console.error("Error leaving ride:", error)
       toast.error("Failed to leave ride")
@@ -206,16 +146,13 @@ export default function RidesPage() {
 
   const handleDeleteRide = async (rideId: string) => {
     if (!user || !supabase) return
-
     try {
       const { error } = await supabase
         .from("rides")
         .delete()
         .eq("id", rideId)
-
       if (error) throw error
       toast.success("Successfully deleted the ride!")
-      await fetchRides()
     } catch (error) {
       console.error("Error deleting ride:", error)
       toast.error("Failed to delete ride")
@@ -228,14 +165,22 @@ export default function RidesPage() {
     )
   }
 
-  if (!user || isLoading) return null;
+  if (isUserLoading || isDataLoading) {
+    console.log('RidesPage: Render - Showing loading spinner (UserLoading:', isUserLoading, ', DataLoading:', isDataLoading, ')')
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    )
+  }
 
-  const userProfile = {
-    id: user.id,
-    full_name: user.full_name,
-    email: user.email,
-    avatar_url: user.avatar_url
-  };
+  if (!user) {
+    console.log("RidesPage: Render - User not logged in after loading.")
+    return <div>Please log in to view rides.</div>
+  }
+
+  console.log('RidesPage: Render - Rendering main content with user:', user)
+  console.log('RidesPage: Render - Rendering with rides:', rides)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -245,10 +190,12 @@ export default function RidesPage() {
           <CommunityMenu />
         </div>
         <div className="flex items-center gap-4">
-          <ProfileMenu user={userProfile} />
+          <ProfileMenu user={user} />
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
             <SheetTrigger asChild>
-              <Button className="fixed bottom-10 left-5 right-5 z-50">Create Ride</Button>
+              <Button className="fixed bottom-10 left-5 right-5 z-50">
+                Create Ride
+              </Button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-fit">
               <SheetHeader>
@@ -257,10 +204,10 @@ export default function RidesPage() {
                   Fill in the details below to schedule a new group ride.
                 </SheetDescription>
               </SheetHeader>
-              <CreateRideForm 
+              <CreateRideForm
                 onSuccess={() => {
-                  setSheetOpen(false);
-                  fetchRides();
+                  setSheetOpen(false)
+                  toast.info("Ride created! List will update shortly.")
                 }}
               />
             </SheetContent>
@@ -269,6 +216,9 @@ export default function RidesPage() {
       </header>
       <main className="mx-auto max-w-5xl p-4">
         <div className="grid gap-4">
+          {rides.length === 0 && (
+            <p className="text-center text-gray-500">No rides scheduled yet. Create one!</p>
+          )}
           {rides.map((ride) => (
             <RideCard
               key={ride.id}
