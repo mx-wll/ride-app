@@ -45,7 +45,6 @@ function LoginForm() {
       (event) => {
         if (event === "SIGNED_IN") {
           router.push("/rides");
-          router.refresh();
         }
       }
     );
@@ -82,7 +81,6 @@ function LoginForm() {
         // Consider more robust profile handling if needed
         toast.success('Successfully signed in!');
         router.push('/rides');
-        router.refresh();
       }
     } catch (err) {
       console.error('Error during sign in:', err);
