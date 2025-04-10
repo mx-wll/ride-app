@@ -26,7 +26,8 @@ export default function Navigation() {
 
   const userProfile = {
     id: currentUser.id,
-    full_name: currentUser.name,
+    name: currentUser.name || '',
+    full_name: currentUser.full_name || currentUser.name,
     email: currentUser.email,
     avatar_url: currentUser.avatar_url
   };

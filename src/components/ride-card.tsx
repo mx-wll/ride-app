@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/badge"
 
 interface User {
   id: string
-  full_name: string
+  name?: string
+  full_name?: string
   email: string
   avatar_url?: string
 }
@@ -260,12 +261,13 @@ export function RideCard({
       <CardFooter className="flex justify-between items-center">
         <div className="flex -space-x-2 flex-wrap gap-y-2">
           {participants.map((participant) => (
-            <Avatar key={participant.id} className="h-8 w-8 ring-2 ring-white">
-              <AvatarImage src={participant.avatar_url} />
-              <AvatarFallback>
-                {participant.full_name?.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <div key={participant.id} className="flex items-center gap-2">
+              <Avatar>
+                <AvatarImage src={participant.avatar_url || ''} />
+                <AvatarFallback>{participant.full_name?.[0] || participant.email[0]}</AvatarFallback>
+              </Avatar>
+              <div className="text-sm">{participant.full_name || participant.email}</div>
+            </div>
           ))}
         </div>
         <div className="flex gap-2">

@@ -15,7 +15,8 @@ import { Button } from "@/components/ui/button"
 
 interface User {
   id: string
-  full_name: string
+  name: string
+  full_name?: string
   email: string
   avatar_url?: string
 }
@@ -40,13 +41,13 @@ export function ProfileMenu({ user }: ProfileMenuProps) {
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
             <AvatarImage src={user.avatar_url} alt={user.full_name} />
-            <AvatarFallback>{user.full_name.charAt(0)}</AvatarFallback>
+            <AvatarFallback>{user.full_name?.charAt(0) || user.name.charAt(0)}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuItem className="flex flex-col items-start">
-          <div className="text-sm font-medium">{user.full_name}</div>
+          <div className="text-sm font-medium">{user.full_name || user.name}</div>
           <div className="text-xs text-gray-500">{user.email}</div>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

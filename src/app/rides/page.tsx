@@ -13,8 +13,18 @@ import { toast, Toaster } from "sonner"
 import type { Database } from "@/lib/supabase/types"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-type UserProfile = Database['public']['Tables']['users']['Row']
-type Ride = Database['public']['Tables']['rides']['Row']
+interface Ride {
+  id: string
+  title: string
+  start_location: string
+  ride_time: string
+  distance: string
+  pace: string
+  bike_type: string
+  created_by: string
+  created_at: string
+}
+
 type RideParticipant = Database['public']['Tables']['ride_participants']['Row']
 
 export default function RidesPage() {
@@ -47,7 +57,17 @@ export default function RidesPage() {
       const [ridesResult, participantsResult] = await Promise.all([
         supabase
           .from("rides")
-          .select("*")
+          .select(`
+            id,
+            title,
+            start_location,
+            ride_time,
+            distance,
+            pace,
+            bike_type,
+            created_by,
+            created_at
+          `)
           .order("ride_time", { ascending: true }),
         supabase
           .from("ride_participants")
@@ -63,7 +83,13 @@ export default function RidesPage() {
       if (ridesError) throw ridesError
       if (participantsError) throw participantsError
 
-      setRides(ridesData || [])
+      // Transform the data to match our component types
+      const transformedRides = (ridesData || []).map(ride => ({
+        ...ride,
+        distance: ride.distance.toString(),
+      }))
+
+      setRides(transformedRides)
       setParticipants(participantsData || [])
     } catch (error) {
       console.error("Error fetching rides:", error)
