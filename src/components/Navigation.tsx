@@ -1,14 +1,13 @@
 'use client';
 
-import { Fragment } from 'react';
 import { Disclosure } from '@headlessui/react';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
-import { useUser } from '@/contexts/UserContext';
-import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useUser } from '@/contexts/UserContext';
 import { CommunityMenu } from './community-menu';
 import { ProfileMenu } from './profile-menu';
-import { Avatar, AvatarFallback, AvatarImage, getAvatarGradient } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const navigation = [
   { name: 'Rides', href: '/rides' },
@@ -94,15 +93,10 @@ export default function Navigation() {
             <div className="border-t border-gray-200 pb-3 pt-4">
               <div className="flex items-center px-4">
                 <div className="flex-shrink-0">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage
-                      src={currentUser.avatar_url}
-                      style={!currentUser.avatar_url ? { background: getAvatarGradient(currentUser.name) } : undefined}
-                    />
-                    <AvatarFallback
-                      style={{ background: getAvatarGradient(currentUser.name) }}
-                    >
-                      {currentUser.name[0]}
+                  <Avatar>
+                    <AvatarImage src={currentUser.avatar_url || undefined} />
+                    <AvatarFallback>
+                      {currentUser.name?.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                 </div>

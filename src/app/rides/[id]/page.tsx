@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Avatar, AvatarFallback, AvatarImage, getAvatarGradient } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 type Ride = Database['public']['Tables']['rides']['Row'] & {
   groups: { name: string }
@@ -193,14 +193,9 @@ export default function RideDetailPage() {
                 <CardTitle className="text-2xl font-bold">{ride.groups.name} Ride</CardTitle>
                 <div className="flex items-center mb-4">
                   <Avatar className="h-10 w-10 mr-3">
-                    <AvatarImage
-                      src={ride.creator.avatar_url}
-                      style={!ride.creator.avatar_url ? { background: getAvatarGradient(ride.creator.name) } : undefined}
-                    />
-                    <AvatarFallback
-                      style={{ background: getAvatarGradient(ride.creator.name) }}
-                    >
-                      {ride.creator.name[0]}
+                    <AvatarImage src={ride.creator.avatar_url} />
+                    <AvatarFallback>
+                      {ride.creator.name?.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div>
@@ -272,14 +267,9 @@ export default function RideDetailPage() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Avatar className="h-8 w-8">
-                            <AvatarImage 
-                              src={participant.users.avatar_url} 
-                              style={!participant.users.avatar_url ? { background: getAvatarGradient(participant.users.name) } : undefined}
-                            />
-                            <AvatarFallback
-                              style={{ background: getAvatarGradient(participant.users.name) }}
-                            >
-                              {participant.users.name[0]}
+                            <AvatarImage src={participant.users.avatar_url} />
+                            <AvatarFallback>
+                              {participant.users.name?.charAt(0).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                           <span>{participant.users.name}</span>

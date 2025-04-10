@@ -248,7 +248,9 @@ export default function RidesPage() {
           <ProfileMenu user={userProfile} />
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
             <SheetTrigger asChild>
-              <Button className="fixed bottom-10 left-5 right-5 z-50">Create Ride</Button>
+              <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white/90 to-transparent p-4 pt-10 pb-10 z-50 backdrop-blur-s">
+                <Button className="w-full">Create Ride</Button>
+              </div>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-fit">
               <CreateRideForm 
@@ -261,7 +263,7 @@ export default function RidesPage() {
           </Sheet>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl p-4">
+      <main className="mx-auto max-w-5xl p-4 pb-40">
         <div className="grid gap-4">
           {rides.map((ride) => (
             <RideCard

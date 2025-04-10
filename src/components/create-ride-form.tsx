@@ -15,7 +15,7 @@ interface CreateRideFormProps {
 type TimeOfDay = 'Now' | 'Morning' | 'Afternoon' | 'Evening'
 type Distance = '50km' | '80km' | '100km'
 type Pace = 'Chill' | 'Speed' | 'Race'
-type BikeType = 'Roadbike' | 'Mountainbike'
+type BikeType = 'Road' | 'MTB'
 
 export function CreateRideForm({ onSuccess }: CreateRideFormProps) {
   const router = useRouter()
@@ -23,7 +23,7 @@ export function CreateRideForm({ onSuccess }: CreateRideFormProps) {
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>('Morning')
   const [distance, setDistance] = useState<Distance>('80km')
   const [pace, setPace] = useState<Pace>('Speed')
-  const [bikeType, setBikeType] = useState<BikeType>('Roadbike')
+  const [bikeType, setBikeType] = useState<BikeType>('Road')
   const [startLocation, setStartLocation] = useState('')
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -85,7 +85,7 @@ export function CreateRideForm({ onSuccess }: CreateRideFormProps) {
           title: `${userData.full_name} wants to ride`,
           start_location: startLocation,
           distance: parseInt(distance),
-          bike_type: bikeType.toLowerCase(),
+          bike_type: bikeType,
           pace: pace.toLowerCase(),
           ride_time: rideTime.toISOString(),
           created_by: user.id,
@@ -187,7 +187,7 @@ export function CreateRideForm({ onSuccess }: CreateRideFormProps) {
 
       <div className="space-y-2">
         <div className="flex gap-2">
-          {(['Roadbike', 'Mountainbike'] as BikeType[]).map((type) => (
+          {(['Road', 'MTB'] as BikeType[]).map((type) => (
             <SelectionButton
               key={type}
               selected={bikeType === type}

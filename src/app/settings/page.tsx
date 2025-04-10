@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage, getAvatarGradient } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { ArrowLeft, Loader2, AlertTriangle } from 'lucide-react'
@@ -418,15 +418,10 @@ export default function SettingsPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="flex items-center gap-4">
               <div className="relative">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage
-                    src={previewUrl || formData.avatar_url}
-                    style={!(previewUrl || formData.avatar_url) ? { background: getAvatarGradient(formData.full_name) } : undefined}
-                  />
-                  <AvatarFallback
-                    style={{ background: getAvatarGradient(formData.full_name) }}
-                  >
-                    {formData.full_name?.[0]}
+                <Avatar className="h-24 w-24">
+                  <AvatarImage src={previewUrl || formData.avatar_url} />
+                  <AvatarFallback>
+                    {formData.full_name?.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 {uploading && (
@@ -444,19 +439,6 @@ export default function SettingsPage() {
                   onChange={handleFileUpload}
                   disabled={uploading || !supabase}
                 />
-                <div className="pt-2">
-                  <Label htmlFor="avatar_url">Or use an Avatar URL</Label>
-                  <Input
-                    id="avatar_url"
-                    value={formData.avatar_url}
-                    onChange={(e) => {
-                      setFormData(prev => ({ ...prev, avatar_url: e.target.value }))
-                      setPreviewUrl(e.target.value || null)
-                    }}
-                    placeholder="https://example.com/avatar.jpg"
-                    disabled={!supabase}
-                  />
-                </div>
               </div>
             </div>
 
@@ -508,16 +490,6 @@ export default function SettingsPage() {
               ) : 'Save Changes'}
             </Button>
           </form>
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg text-sm">
-            <h3 className="font-medium mb-2">How to upload your avatar:</h3>
-            <ol className="list-decimal pl-5 space-y-2">
-              <li>Click &quot;Choose File&quot; to select an image (JPG, PNG, or GIF) from your device</li>
-              <li>Your image will upload automatically and appear in the avatar preview</li>
-              <li>Alternatively, paste an image URL in the &quot;Avatar URL&quot; field</li>
-              <li>Click &quot;Save Changes&quot; to permanently save your profile settings</li>
-            </ol>
-            <p className="mt-3 text-gray-500">Your avatar will appear throughout the app, including on ride cards and participant lists.</p>
-          </div>
           {dbStatus && (
             <div className={`mt-4 p-3 rounded-md text-sm ${dbStatus.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
               <div className="flex items-center">

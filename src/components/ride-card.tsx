@@ -1,13 +1,15 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarImage, AvatarFallback, getAvatarGradient } from "@/components/ui/avatar"
-import { Separator } from "@/components/ui/separator"
-import { MapPin, Calendar, Bike, Gauge } from "lucide-react"
-import { formatDate } from "@/lib/utils"
-import { createClient } from "@/lib/supabase/client"
 import { useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
+import { getTimePeriod } from "@/lib/utils"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { Separator } from "@/components/ui/separator"
+import { CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 
 interface User {
   id: string
@@ -26,6 +28,9 @@ interface Ride {
   bike_type: string
   created_by: string
   created_at: string
+  creator?: {
+    full_name: string
+  }
 }
 
 interface RideCardProps {
@@ -48,13 +53,22 @@ export function RideCard({
   const isCreator = ride.created_by === currentUser.id
   const [participants, setParticipants] = useState<User[]>([])
   const [isJoining, setIsJoining] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [creatorName, setCreatorName] = useState<string>(ride.creator?.full_name || "")
   const supabase = createClient()
 
   useEffect(() => {
     const fetchParticipants = async () => {
-      if (!supabase) return
+      if (!supabase) {
+        setError("Database connection not available")
+        setIsLoading(false)
+        return
+      }
       
       try {
+        setIsLoading(true)
+        setError(null)
         const { data: participantsData, error } = await supabase
           .from('ride_participants')
           .select(`
@@ -68,11 +82,12 @@ export function RideCard({
 
         if (error) {
           console.error("Error fetching participants:", error)
+          setError("Failed to load participants")
+          toast.error("Failed to load ride participants")
           return
         }
 
         if (participantsData) {
-          // Type assertion to unknown first, then to our expected type
           const typedData = participantsData as unknown as Array<{
             user_id: string
             users: {
@@ -84,7 +99,7 @@ export function RideCard({
           const processedUsers = typedData.map(p => ({
             id: p.user_id,
             full_name: p.users.full_name,
-            email: '', // Email is not needed for avatar display
+            email: '',
             avatar_url: p.users.avatar_url
           }))
           
@@ -92,58 +107,152 @@ export function RideCard({
         }
       } catch (error) {
         console.error('Error in fetchParticipants:', error)
+        setError("An unexpected error occurred")
+        toast.error("Failed to load ride participants")
+      } finally {
+        setIsLoading(false)
       }
     }
 
     fetchParticipants()
   }, [ride.id, supabase, isJoining])
 
+  // Fetch creator's name if not provided
+  useEffect(() => {
+    const fetchCreatorName = async () => {
+      if (!supabase || ride.creator?.full_name) return
+      
+      try {
+        setIsLoading(true)
+        const { data, error } = await supabase
+          .from('users')
+          .select('full_name')
+          .eq('id', ride.created_by)
+          .single()
+
+        if (error) {
+          console.error('Error fetching creator name:', error)
+          toast.error("Failed to load creator information")
+          return
+        }
+        
+        if (data) {
+          setCreatorName(data.full_name)
+        }
+      } catch (error) {
+        console.error('Error fetching creator name:', error)
+        toast.error("Failed to load creator information")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchCreatorName()
+  }, [ride.created_by, ride.creator?.full_name, supabase])
+
+  // Subscribe to creator name changes
+  useEffect(() => {
+    if (!supabase) return
+
+    const subscription = supabase
+      .channel('public:users')
+      .on('postgres_changes', 
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'users',
+          filter: `id=eq.${ride.created_by}`
+        }, 
+        (payload: { new: { full_name?: string } }) => {
+          if (payload.new.full_name) {
+            setCreatorName(payload.new.full_name)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [ride.created_by, supabase])
+
   const handleJoinLeave = async () => {
-    if (isJoining) return // Prevent multiple clicks
+    if (isJoining) return
     setIsJoining(true)
     
     try {
       if (isParticipant) {
         await onLeave(ride.id)
+        toast.success("Successfully left the ride")
       } else {
         await onJoin(ride.id)
+        toast.success("Successfully joined the ride")
       }
     } catch (error) {
       console.error('Error in handleJoinLeave:', error)
+      toast.error(isParticipant ? "Failed to leave ride" : "Failed to join ride")
     } finally {
       setIsJoining(false)
     }
   }
 
+  const handleDelete = async () => {
+    try {
+      await onDelete(ride.id)
+      toast.success("Ride deleted successfully")
+    } catch (error) {
+      console.error('Error deleting ride:', error)
+      toast.error("Failed to delete ride")
+    }
+  }
+
+  const rideTitle = `${creatorName} wants to ride`
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center text-red-500">
+          {error}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center">
+          Loading...
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg">{ride.title}</CardTitle>
+        <CardTitle className="text-lg flex items-center gap-2">
+          {rideTitle}
+          <Badge variant="secondary" className="text-xs">
+            {getTimePeriod(ride.ride_time)}
+          </Badge>
+        </CardTitle>
       </CardHeader>
-      <CardContent className="flex items-center justify-between">
-        <div className="flex items-center gap-4 text-sm text-gray-500">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4" />
+      <CardContent className="flex justify-between">
+        <div className="flex gap-3 text-s text-gray-500">
+          <div className="flex">
             <span>{ride.start_location}</span>
           </div>
-          <Separator orientation="vertical" className="h-4" />
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            <span>{formatDate(ride.ride_time)}</span>
+          <Separator orientation="vertical"/>
+          <div className="flex">
+            <span>{ride.distance} km</span>
           </div>
-          <Separator orientation="vertical" className="h-4" />
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4" />
-            <span>{ride.distance}</span>
-          </div>
-          <Separator orientation="vertical" className="h-4" />
-          <div className="flex items-center gap-2">
-            <Gauge className="h-4 w-4" />
+          <Separator orientation="vertical"/>
+          <div className="flex">
             <span>{ride.pace}</span>
           </div>
-          <Separator orientation="vertical" className="h-4" />
-          <div className="flex items-center gap-2">
-            <Bike className="h-4 w-4" />
+          <Separator orientation="vertical"/>
+          <div className="flex">
             <span>{ride.bike_type}</span>
           </div>
         </div>
@@ -151,19 +260,11 @@ export function RideCard({
       <CardFooter className="flex justify-between items-center">
         <div className="flex -space-x-2 flex-wrap gap-y-2">
           {participants.map((participant) => (
-            <Avatar key={participant.id} className="ring-2 ring-white">
-              {participant.avatar_url ? (
-                <AvatarImage
-                  src={participant.avatar_url}
-                  alt={participant.full_name}
-                />
-              ) : (
-                <AvatarFallback
-                  style={{ background: getAvatarGradient(participant.full_name) }}
-                >
-                  {participant.full_name[0]}
-                </AvatarFallback>
-              )}
+            <Avatar key={participant.id} className="h-8 w-8 ring-2 ring-white">
+              <AvatarImage src={participant.avatar_url} />
+              <AvatarFallback>
+                {participant.full_name?.charAt(0).toUpperCase()}
+              </AvatarFallback>
             </Avatar>
           ))}
         </div>
@@ -178,7 +279,7 @@ export function RideCard({
             </Button>
           )}
           {isCreator && (
-            <Button variant="destructive" onClick={() => onDelete(ride.id)}>
+            <Button variant="destructive" onClick={handleDelete}>
               Delete
             </Button>
           )}

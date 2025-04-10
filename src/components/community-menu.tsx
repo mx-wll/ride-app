@@ -1,11 +1,13 @@
 'use client'
 
+import { Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage, getAvatarGradient } from '@/components/ui/avatar'
-import { Users } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Separator } from '@/components/ui/separator'
 
 interface User {
   id: string
@@ -73,39 +75,40 @@ export function CommunityMenu() {
           <Users className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent>
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Community</h2>
-          <div className="space-y-4">
-            {users.map((user) => (
-              <div key={user.id} className="flex items-center gap-4">
-                <Avatar>
-                  <AvatarImage
-                    src={user.avatar_url}
-                    alt={user.full_name}
-                    style={!user.avatar_url ? { background: getAvatarGradient(user.full_name) } : undefined}
-                  />
-                  <AvatarFallback style={{ background: getAvatarGradient(user.full_name) }}>
-                    {user.full_name[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{user.full_name}</p>
-                  {user.social_url && (
-                    <a
-                      href={user.social_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline truncate block"
-                    >
-                      {user.social_url}
-                    </a>
-                  )}
+      <SheetContent side="left">
+        <SheetHeader>
+          <SheetTitle>Community</SheetTitle>
+        </SheetHeader>
+        <ScrollArea className="h-[calc(100vh-8rem)] pr-4">
+          <div className="p-4">
+            {users.map((user, i) => (
+              <div key={user.id}>
+                {i > 0 && <Separator className="my-4" />}
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.avatar_url || undefined} />
+                    <AvatarFallback className="text-xs">
+                      {user.full_name?.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col gap-0.5">
+                    <p className="text-sm font-medium leading-none">{user.full_name}</p>
+                    {user.social_url && (
+                      <a 
+                        href={user.social_url}
+                        target="_blank"
+                        rel="noopener noreferrer" 
+                        className="text-xs text-muted-foreground hover:underline"
+                      >
+                        {user.social_url.replace(/^https?:\/\/(www\.)?/, '')}
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </ScrollArea>
       </SheetContent>
     </Sheet>
   )
