@@ -4,17 +4,27 @@ import { NextConfig } from 'next'
 const config: NextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['avatars.githubusercontent.com'],
-  },
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '2mb'
-    }
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'avatars.githubusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
+      },
+    ],
   },
 }
 
-export default withPWA({
-  dest: 'public',
-  register: true,
-  skipWaiting: true,
-})(config)
+// Disable PWA in development to avoid Turbopack/Webpack conflict
+const isDev = process.env.NODE_ENV === 'development'
+
+export default isDev
+  ? config
+  : withPWA({
+      dest: 'public',
+      register: true,
+      skipWaiting: true,
+      disable: false,
+    })(config)

@@ -35,9 +35,6 @@ export default function RidesPage() {
   const [participants, setParticipants] = useState<RideParticipant[]>([])
   const [sheetOpen, setSheetOpen] = useState(false)
 
-  console.log('RidesPage Render Start - isUserLoading:', isUserLoading, 'isDataLoading:', isDataLoading)
-  console.log('RidesPage Render Start - User:', user)
-
   useEffect(() => {
     try {
       const client = createClient()
@@ -51,7 +48,6 @@ export default function RidesPage() {
   const fetchRides = useCallback(async () => {
     if (!supabase) return
 
-    console.log('fetchRides - Starting...')
     setIsDataLoading(true)
     try {
       const [ridesResult, participantsResult] = await Promise.all([
@@ -77,13 +73,9 @@ export default function RidesPage() {
       const { data: ridesData, error: ridesError } = ridesResult
       const { data: participantsData, error: participantsError } = participantsResult
 
-      console.log('fetchRides - ridesData:', ridesData)
-      console.log('fetchRides - participantsData:', participantsData)
-
       if (ridesError) throw ridesError
       if (participantsError) throw participantsError
 
-      // Transform the data to match our component types
       const transformedRides = (ridesData || []).map(ride => ({
         ...ride,
         distance: ride.distance.toString(),
@@ -96,13 +88,11 @@ export default function RidesPage() {
       toast.error("Failed to load rides")
     } finally {
       setIsDataLoading(false)
-      console.log('fetchRides - Finished, isDataLoading set to false')
     }
   }, [supabase])
 
   useEffect(() => {
     if (!supabase) return
-    console.log('RidesPage: Supabase client ready, fetching initial rides.')
     fetchRides()
 
     const ridesChannel = supabase
@@ -110,31 +100,20 @@ export default function RidesPage() {
       .on<Ride>(
         "postgres_changes",
         { event: "*", schema: "public", table: "rides" },
-        (payload) => {
-          console.log('Ride change received!', payload)
-          fetchRides()
-        }
+        () => fetchRides()
       )
-      .subscribe((status) => {
-        console.log('Rides realtime status:', status)
-      })
+      .subscribe()
 
     const participantsChannel = supabase
       .channel("participants_realtime")
       .on<RideParticipant>(
         "postgres_changes",
         { event: "*", schema: "public", table: "ride_participants" },
-        (payload) => {
-          console.log('Participant change received!', payload)
-          fetchRides()
-        }
+        () => fetchRides()
       )
-      .subscribe((status) => {
-        console.log('Participants realtime status:', status)
-      })
+      .subscribe()
 
     return () => {
-      console.log('RidesPage: Cleaning up realtime subscriptions.')
       supabase.removeChannel(ridesChannel)
       supabase.removeChannel(participantsChannel)
     }
@@ -192,7 +171,6 @@ export default function RidesPage() {
   }
 
   if (isUserLoading || isDataLoading) {
-    console.log('RidesPage: Render - Showing loading spinner (UserLoading:', isUserLoading, ', DataLoading:', isDataLoading, ')')
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -201,12 +179,8 @@ export default function RidesPage() {
   }
 
   if (!user) {
-    console.log("RidesPage: Render - User not logged in after loading.")
     return <div>Please log in to view rides.</div>
   }
-
-  console.log('RidesPage: Render - Rendering main content with user:', user)
-  console.log('RidesPage: Render - Rendering with rides:', rides)
 
   return (
     <div className="min-h-screen bg-gray-50">

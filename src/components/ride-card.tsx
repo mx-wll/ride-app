@@ -82,9 +82,7 @@ export function RideCard({
           .eq('ride_id', ride.id)
 
         if (error) {
-          console.error("Error fetching participants:", error)
           setError("Failed to load participants")
-          toast.error("Failed to load ride participants")
           return
         }
 
@@ -106,10 +104,8 @@ export function RideCard({
           
           setParticipants(processedUsers)
         }
-      } catch (error) {
-        console.error('Error in fetchParticipants:', error)
+      } catch {
         setError("An unexpected error occurred")
-        toast.error("Failed to load ride participants")
       } finally {
         setIsLoading(false)
       }
@@ -132,17 +128,14 @@ export function RideCard({
           .single()
 
         if (error) {
-          console.error('Error fetching creator name:', error)
-          toast.error("Failed to load creator information")
           return
         }
         
         if (data) {
           setCreatorName(data.full_name)
         }
-      } catch (error) {
-        console.error('Error fetching creator name:', error)
-        toast.error("Failed to load creator information")
+      } catch {
+        // Silently fail - creator name will show as empty
       } finally {
         setIsLoading(false)
       }
@@ -189,8 +182,7 @@ export function RideCard({
         await onJoin(ride.id)
         toast.success("Successfully joined the ride")
       }
-    } catch (error) {
-      console.error('Error in handleJoinLeave:', error)
+    } catch {
       toast.error(isParticipant ? "Failed to leave ride" : "Failed to join ride")
     } finally {
       setIsJoining(false)
@@ -201,8 +193,7 @@ export function RideCard({
     try {
       await onDelete(ride.id)
       toast.success("Ride deleted successfully")
-    } catch (error) {
-      console.error('Error deleting ride:', error)
+    } catch {
       toast.error("Failed to delete ride")
     }
   }

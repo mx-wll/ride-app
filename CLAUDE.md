@@ -9,6 +9,7 @@ npm run dev          # Start dev server with Turbopack (http://localhost:3000)
 npm run build        # Production build
 npm run lint         # ESLint
 npm run start        # Start production server
+npm run format       # Format code with Prettier
 ```
 
 ## Architecture
@@ -17,48 +18,60 @@ This is a Next.js 15 (App Router) + Supabase + Tailwind CSS app for coordinating
 
 ### Directory Structure
 
-- `src/app/` - Next.js App Router pages and API routes
-  - `(app)/` - App layout group (authenticated pages)
-  - `rides/` - Ride listing, detail, and creation pages
-  - `settings/` - User settings
-  - `login/`, `signup/` - Auth pages
-  - `api/rides/` - API routes
-- `src/components/` - React components
-  - `ui/` - Radix-based UI primitives (shadcn/ui style)
-- `src/lib/supabase/` - Supabase client setup (client.ts, server.ts, middleware.ts, types.ts)
-- `src/contexts/` - React context providers (UserContext)
-- `supabase/migrations/` - Database migrations
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── (app)/             # App layout group
+│   ├── rides/             # Ride pages (list, detail, new)
+│   ├── settings/          # User settings
+│   ├── login/, signup/    # Auth pages
+│   └── api/               # API routes
+├── components/            # React components
+│   ├── ui/               # Radix-based UI primitives (shadcn/ui)
+│   ├── ride-card.tsx     # Ride display card
+│   ├── create-ride-form.tsx
+│   ├── profile-menu.tsx
+│   └── community-menu.tsx
+├── contexts/              # React context providers
+│   └── UserContext.tsx   # Current user state
+├── lib/
+│   ├── supabase/         # Supabase clients
+│   │   ├── client.ts     # Browser client
+│   │   ├── server.ts     # Server client
+│   │   └── types.ts      # Database types
+│   └── utils.ts          # Utility functions
+└── middleware.ts         # Auth middleware
+```
 
 ### Path Alias
 
-```
-@/* -> ./src/*
-```
+`@/*` → `./src/*`
 
 ### Database Tables
 
 - `users` - User profiles (id, name, email, avatar_url, is_admin)
 - `groups` - Ride groups
-- `user_group` - User-group membership (many-to-many)
-- `rides` - Ride events (ride_time, distance, avg_speed, created_by, group_id)
-- `ride_participants` - Ride participation with status (pending/accepted/declined)
-
-Types are defined in `src/lib/supabase/types.ts`.
+- `user_group` - User-group membership
+- `rides` - Ride events (ride_time, distance, pace, bike_type, created_by)
+- `ride_participants` - Participation with status (pending/accepted/declined)
 
 ### Key Patterns
 
 **Supabase Clients**: Use `createClient()` from `@/lib/supabase/client` in client components, `@/lib/supabase/server` in server components.
 
-**User Context**: `UserContext` provides current user state across the app.
+**User Context**: `UserContext` provides current user state. Use `useUser()` hook.
 
-**Auth Flow**: Middleware handles session refresh. Login/signup pages use Supabase Auth.
+**Real-time**: Rides and participants use Supabase real-time subscriptions for live updates.
 
-## Supabase Local Development
+**RLS**: Row Level Security policies protect all tables. Users can only modify their own data.
+
+## Supabase
 
 ```bash
-npx supabase start      # Start local Supabase
-npx supabase db reset   # Reset and run all migrations
-npx supabase stop       # Stop local Supabase
+npx supabase link --project-ref fuisrstmdpqhvtlcswox
+npx supabase db push         # Push migrations
+npx supabase db pull         # Pull remote schema
+npx supabase gen types ts    # Generate TypeScript types
 ```
 
-Migrations are in `supabase/migrations/` with format `YYYYMMDDHHMMSS_description.sql`.
+Migrations are in `supabase/migrations/`.
