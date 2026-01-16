@@ -113,10 +113,14 @@ export type Database = {
           bike_type: string | null
           created_at: string | null
           created_by: string | null
+          description: string | null
           distance: number
           group_id: string | null
           id: string
+          latitude: number | null
+          longitude: number | null
           pace: string | null
+          radius_km: number | null
           ride_time: string
           start_location: string | null
           title: string
@@ -125,10 +129,14 @@ export type Database = {
           bike_type?: string | null
           created_at?: string | null
           created_by?: string | null
+          description?: string | null
           distance: number
           group_id?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           pace?: string | null
+          radius_km?: number | null
           ride_time: string
           start_location?: string | null
           title: string
@@ -137,10 +145,14 @@ export type Database = {
           bike_type?: string | null
           created_at?: string | null
           created_by?: string | null
+          description?: string | null
           distance?: number
           group_id?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           pace?: string | null
+          radius_km?: number | null
           ride_time?: string
           start_location?: string | null
           title?: string
@@ -201,7 +213,12 @@ export type Database = {
           id: string
           is_admin: boolean | null
           name: string
+          notification_bike_types: string[] | null
+          notification_radius_km: number | null
+          notifications_enabled: boolean | null
+          push_subscription: Record<string, unknown> | null
           social_url: string | null
+          strava_url: string | null
           updated_at: string | null
         }
         Insert: {
@@ -212,7 +229,12 @@ export type Database = {
           id: string
           is_admin?: boolean | null
           name: string
+          notification_bike_types?: string[] | null
+          notification_radius_km?: number | null
+          notifications_enabled?: boolean | null
+          push_subscription?: Record<string, unknown> | null
           social_url?: string | null
+          strava_url?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -223,7 +245,12 @@ export type Database = {
           id?: string
           is_admin?: boolean | null
           name?: string
+          notification_bike_types?: string[] | null
+          notification_radius_km?: number | null
+          notifications_enabled?: boolean | null
+          push_subscription?: Record<string, unknown> | null
           social_url?: string | null
+          strava_url?: string | null
           updated_at?: string | null
         }
         Relationships: []

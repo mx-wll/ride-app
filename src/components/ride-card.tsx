@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -57,7 +57,7 @@ export function RideCard({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [creatorName, setCreatorName] = useState<string>(ride.creator?.full_name || "")
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
     const fetchParticipants = async () => {
@@ -112,7 +112,7 @@ export function RideCard({
     }
 
     fetchParticipants()
-  }, [ride.id, supabase, isJoining])
+  }, [ride.id, supabase, isJoining]) // supabase is now stable via useMemo
 
   // Fetch creator's name if not provided
   useEffect(() => {

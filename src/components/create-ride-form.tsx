@@ -1,12 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { getRandomQuote, formatQuoteForRide } from '@/lib/cyclist-quotes'
+import { Quote, RefreshCw } from 'lucide-react'
 
 interface CreateRideFormProps {
   onSuccess: () => void
@@ -25,6 +28,16 @@ export function CreateRideForm({ onSuccess }: CreateRideFormProps) {
   const [pace, setPace] = useState<Pace>('Speed')
   const [bikeType, setBikeType] = useState<BikeType>('Road')
   const [startLocation, setStartLocation] = useState('')
+  const [description, setDescription] = useState('')
+  const [placeholderQuote, setPlaceholderQuote] = useState({ quote: '', author: '' })
+
+  useEffect(() => {
+    setPlaceholderQuote(getRandomQuote())
+  }, [])
+
+  const refreshQuote = () => {
+    setPlaceholderQuote(getRandomQuote())
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -78,6 +91,9 @@ export function CreateRideForm({ onSuccess }: CreateRideFormProps) {
           break
       }
 
+      // Use cyclist quote if description is empty
+      const finalDescription = description.trim() || formatQuoteForRide(placeholderQuote)
+
       // Insert the ride
       const { data: rideData, error: rideError } = await supabase
         .from('rides')
@@ -89,7 +105,8 @@ export function CreateRideForm({ onSuccess }: CreateRideFormProps) {
           pace: pace.toLowerCase(),
           ride_time: rideTime.toISOString(),
           created_by: user.id,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          description: finalDescription,
         })
         .select()
         .single()
@@ -118,14 +135,14 @@ export function CreateRideForm({ onSuccess }: CreateRideFormProps) {
     }
   }
 
-  const SelectionButton = ({ 
-    selected, 
-    onClick, 
-    children 
-  }: { 
+  const SelectionButton = ({
+    selected,
+    onClick,
+    children
+  }: {
     selected: boolean
     onClick: () => void
-    children: React.ReactNode 
+    children: React.ReactNode
   }) => (
     <button
       type="button"
@@ -202,7 +219,7 @@ export function CreateRideForm({ onSuccess }: CreateRideFormProps) {
       <div className="space-y-2">
         <Input
           type="text"
-          placeholder="Start"
+          placeholder="Start location"
           value={startLocation}
           onChange={(e) => setStartLocation(e.target.value)}
           required
@@ -210,13 +227,39 @@ export function CreateRideForm({ onSuccess }: CreateRideFormProps) {
         />
       </div>
 
+      <div className="space-y-2">
+        <div className="relative">
+          <Textarea
+            placeholder={`${placeholderQuote.quote} — ${placeholderQuote.author}`}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full min-h-[80px] pr-10 resize-none"
+            rows={3}
+          />
+          <div className="absolute right-2 top-2 flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={refreshQuote}
+              className="p-1.5 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              title="Get a new inspirational quote"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <Quote className="h-4 w-4 text-slate-300" />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Add a message or leave empty for an inspirational cycling quote
+        </p>
+      </div>
+
       <Button
         type="submit"
         className="w-full"
         disabled={isSubmitting}
       >
-        {isSubmitting ? 'Creating...' : 'Lets Ride'}
+        {isSubmitting ? 'Creating...' : "Let's Ride"}
       </Button>
     </form>
   )
-} 
+}

@@ -6,16 +6,25 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Loader2, AlertTriangle, ExternalLink } from 'lucide-react'
 import { SupabaseClient } from '@supabase/supabase-js'
 import { Database } from '@/lib/supabase/types'
+import { GroupSelector } from '@/components/group-selector'
+import { NotificationSettings } from '@/components/notification-settings'
 
-// Use proper typing for Supabase client
 type SupabaseClientType = SupabaseClient<Database>
+
+// Strava brand colors
+const StravaIcon = () => (
+  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
+  </svg>
+)
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -25,13 +34,19 @@ export default function SettingsPage() {
     full_name: '',
     avatar_url: '',
     social_url: '',
+    strava_url: '',
   })
+  const [notificationSettings, setNotificationSettings] = useState({
+    notifications_enabled: true,
+    notification_radius_km: 25,
+    notification_bike_types: ['Road', 'MTB'] as string[],
+  })
+  const [userGroups, setUserGroups] = useState<string[]>([])
   const [userId, setUserId] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [dbStatus, setDbStatus] = useState<{ success: boolean; message: string } | null>(null)
   const [supabase, setSupabase] = useState<SupabaseClientType | null>(null)
 
-  // Initialize supabase client safely
   useEffect(() => {
     try {
       const client = createClient()
@@ -47,87 +62,68 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!supabase) return
-    
+
     const getUser = async () => {
       try {
-        console.log("Fetching user data...")
         const { data: { user }, error: authError } = await supabase.auth.getUser()
-        if (authError) {
-          console.error("Auth error:", authError)
-          throw authError
-        }
+        if (authError) throw authError
         if (!user) {
-          console.log("No user found, redirecting to login")
           router.replace("/login")
           return
         }
 
         setUserId(user.id)
-        console.log("User ID:", user.id)
 
-        // Check database connection with a simple query
-        try {
-          const { data, error } = await supabase
-            .from('users')
-            .select('id')
-            .limit(1)
-          
-          if (error) {
-            setDbStatus({ 
-              success: false, 
-              message: `Database error: ${error.message}` 
-            })
-            console.error('Database connection failed:', error)
-          } else {
-            setDbStatus({ 
-              success: true, 
-              message: 'Connected to remote database' 
-            })
-            console.log('Database connection successful:', data)
-          }
-        } catch (dbError) {
-          console.error('Database connection exception:', dbError)
-          setDbStatus({ 
-            success: false, 
-            message: `Connection error: ${dbError instanceof Error ? dbError.message : 'Unknown error'}` 
-          })
+        // Check database connection
+        const { error: connError } = await supabase
+          .from('users')
+          .select('id')
+          .limit(1)
+
+        if (connError) {
+          setDbStatus({ success: false, message: `Database error: ${connError.message}` })
+        } else {
+          setDbStatus({ success: true, message: 'Connected to remote database' })
         }
 
-        // Get user data with explicit column selection
+        // Get user data
         const { data: userData, error: userError } = await supabase
           .from("users")
-          .select("id, full_name, avatar_url, email, social_url")
+          .select("id, full_name, avatar_url, email, social_url, strava_url, notifications_enabled, notification_radius_km, notification_bike_types")
           .eq("id", user.id)
           .single()
 
-        if (userError) {
-          console.error("User data fetch error:", userError)
-          throw userError
-        }
+        if (userError) throw userError
 
-        console.log("User data loaded:", userData)
-        
         if (!userData) {
-          console.error("No user data found for ID:", user.id)
           toast.error("User profile not found")
           return
         }
-        
-        // Set the form data with values from the database
+
         setFormData({
           full_name: userData.full_name || '',
           avatar_url: userData.avatar_url || '',
           social_url: userData.social_url || '',
+          strava_url: userData.strava_url || '',
         })
-        
-        // Set the initial preview URL to be the same as avatar_url
+
+        setNotificationSettings({
+          notifications_enabled: userData.notifications_enabled ?? true,
+          notification_radius_km: userData.notification_radius_km ?? 25,
+          notification_bike_types: userData.notification_bike_types ?? ['Road', 'MTB'],
+        })
+
         setPreviewUrl(userData.avatar_url || null)
-        
-        console.log("Form data initialized:", {
-          full_name: userData.full_name || '',
-          avatar_url: userData.avatar_url || '',
-          social_url: userData.social_url || '',
-        })
+
+        // Fetch user groups
+        const { data: groupData } = await supabase
+          .from('user_group')
+          .select('group_id')
+          .eq('user_id', user.id)
+
+        if (groupData) {
+          setUserGroups(groupData.map(g => g.group_id))
+        }
       } catch (error) {
         console.error("Error fetching user:", error)
         toast.error("Failed to load user data")
@@ -139,139 +135,81 @@ export default function SettingsPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!supabase) {
+    if (!supabase || !userId) {
       toast.error("No database connection available")
       return
     }
-    
+
     setIsLoading(true)
 
     try {
-      if (!userId) {
-        throw new Error('No user ID found')
-      }
-
-      console.log("Starting profile update...");
-      console.log("Current user ID:", userId);
-      console.log("Update data:", {
-        full_name: formData.full_name,
-        social_url: formData.social_url
-      });
-
-      // Start a transaction by getting the old name first
+      // Get old name for updating rides
       const { data: oldUserData, error: oldUserError } = await supabase
         .from('users')
         .select('full_name')
         .eq('id', userId)
-        .single();
+        .single()
 
-      if (oldUserError) {
-        throw oldUserError;
-      }
+      if (oldUserError) throw oldUserError
 
-      // Only proceed with ride updates if name has changed
+      // Update ride titles if name changed
       if (oldUserData.full_name !== formData.full_name) {
-        console.log("Name changed, updating ride titles...");
-        
-        // Get all rides created by this user
         const { data: userRides, error: ridesError } = await supabase
           .from('rides')
           .select('id, title')
-          .eq('created_by', userId);
+          .eq('created_by', userId)
 
-        if (ridesError) {
-          throw ridesError;
-        }
+        if (ridesError) throw ridesError
 
         if (userRides && userRides.length > 0) {
-          console.log("Updating titles for rides:", userRides);
-          
-          // Update all ride titles
           const { error: updateRidesError } = await supabase
             .from('rides')
-            .update({
-              title: `${formData.full_name} wants to ride`
-            })
-            .eq('created_by', userId);
+            .update({ title: `${formData.full_name} wants to ride` })
+            .eq('created_by', userId)
 
-          if (updateRidesError) {
-            throw updateRidesError;
-          }
-          
-          console.log(`Updated titles for ${userRides.length} rides`);
+          if (updateRidesError) throw updateRidesError
         }
       }
 
       // Update user profile
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('users')
         .update({
           full_name: formData.full_name,
           social_url: formData.social_url,
+          strava_url: formData.strava_url,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId)
-        .select()
-        .single();
 
-      if (error) {
-        console.error("Update failed:", error);
-        throw error;
-      }
+      if (error) throw error
 
-      console.log("Update response:", data);
-
-      // Verify the update was successful
-      const { data: verifyData, error: verifyError } = await supabase
-        .from('users')
-        .select('full_name, social_url, avatar_url')
-        .eq('id', userId)
-        .single();
-
-      if (verifyError) {
-        console.error("Verification failed:", verifyError);
-        throw verifyError;
-      }
-
-      console.log("Verified data:", verifyData);
-
-      if (verifyData.full_name !== formData.full_name) {
-        throw new Error('Update verification failed: name mismatch');
-      }
-
-      // Update local storage and UI
-      localStorage.setItem('userName', formData.full_name);
-      toast.success('Profile and associated rides updated successfully');
-      
-      // Force refresh to update UI everywhere
-      router.refresh();
+      localStorage.setItem('userName', formData.full_name)
+      toast.success('Profile updated successfully')
+      router.refresh()
     } catch (error) {
-      console.error('Profile update error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to update profile');
+      console.error('Profile update error:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to update profile')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!supabase) {
+    if (!supabase || !userId) {
       toast.error("No database connection available")
       return
     }
-    
+
     try {
       setUploading(true)
       if (!e.target.files || e.target.files.length === 0) {
         throw new Error("You must select an image to upload.")
       }
 
-      if (!userId) {
-        throw new Error('No user ID found')
-      }
-
       const file = e.target.files[0]
       const fileExt = file.name.split(".").pop()
-      const maxSize = 5 * 1024 * 1024 // 5MB
+      const maxSize = 5 * 1024 * 1024
 
       if (file.size > maxSize) {
         throw new Error("File size must be less than 5MB")
@@ -280,107 +218,69 @@ export default function SettingsPage() {
       if (!["jpg", "jpeg", "png", "gif"].includes(fileExt?.toLowerCase() || "")) {
         throw new Error("File type not supported")
       }
-      
-      // Create a temporary local preview
+
       const objectUrl = URL.createObjectURL(file)
       setPreviewUrl(objectUrl)
-      
+
       toast.info("Uploading image...", { duration: 3000 })
 
       const fileName = `${userId}-${Date.now()}.${fileExt}`
       const filePath = `${userId}/${fileName}`
-      
-      console.log("Uploading file to:", filePath)
-      
+
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true
-        })
+        .upload(filePath, file, { cacheControl: '3600', upsert: true })
 
-      if (uploadError) {
-        console.error("Upload error:", uploadError)
-        throw uploadError
-      }
+      if (uploadError) throw uploadError
 
-      const { data } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(filePath)
-      
+      const { data } = supabase.storage.from("avatars").getPublicUrl(filePath)
       const publicUrl = data.publicUrl
 
-      console.log("Public URL generated:", publicUrl)
-
-      // Update form data with the permanent URL
       setFormData(prev => ({ ...prev, avatar_url: publicUrl }))
       setPreviewUrl(publicUrl)
 
-      // CRITICAL CHANGE: Make a direct update to ensure data is saved remotely
-      console.log("Updating user profile in database with avatar_url:", publicUrl)
-      
-      // First attempt - direct SQL update
+      // Update avatar in database
       try {
-        // Execute a direct SQL update
-        const { data: updateData, error: updateError } = await supabase.rpc(
-          'update_user_avatar',
-          { 
-            user_id: userId,
-            avatar_url_param: publicUrl 
-          }
-        )
-        
-        if (updateError) {
-          console.error("RPC update error:", updateError)
-          throw updateError
-        }
-        
-        console.log("Avatar updated successfully:", updateData)
-        localStorage.setItem('userAvatarUrl', publicUrl)
-        toast.success("Avatar updated successfully!")
-      } catch (directError) {
-        console.error("Direct update error:", directError)
-        
+        const { error: updateError } = await supabase.rpc('update_user_avatar', {
+          user_id: userId,
+          avatar_url_param: publicUrl
+        })
+        if (updateError) throw updateError
+      } catch {
         // Fallback to regular update
-        try {
-          const { error: fallbackError } = await supabase
-            .from("users")
-            .update({ 
-              avatar_url: publicUrl,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', userId)
-          
-          if (fallbackError) {
-            console.error("Fallback update error:", fallbackError)
-            throw fallbackError
-          }
-          
-          console.log("Avatar updated through fallback method")
-          localStorage.setItem('userAvatarUrl', publicUrl)
-          toast.success("Avatar updated successfully!")
-        } catch (fallbackError) {
-          console.error("All update methods failed:", fallbackError)
-          throw new Error("Failed to save avatar to database")
-        }
+        const { error: fallbackError } = await supabase
+          .from("users")
+          .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+          .eq('id', userId)
+        if (fallbackError) throw fallbackError
       }
+
+      localStorage.setItem('userAvatarUrl', publicUrl)
+      toast.success("Avatar updated successfully!")
     } catch (error) {
       console.error("File upload error:", error)
-      if (error instanceof Error) {
-        toast.error(error.message)
-      } else {
-        toast.error("Error uploading avatar")
-      }
-      
-      // Revert preview on error
+      toast.error(error instanceof Error ? error.message : "Error uploading avatar")
       setPreviewUrl(formData.avatar_url || null)
     } finally {
       setUploading(false)
     }
   }
 
+  const formatStravaUrl = (input: string): string => {
+    if (!input) return ''
+    // If it's just a username, prepend the Strava URL
+    if (!input.includes('strava.com') && !input.includes('http')) {
+      return `https://www.strava.com/athletes/${input}`
+    }
+    // If it doesn't have https, add it
+    if (!input.startsWith('http')) {
+      return `https://${input}`
+    }
+    return input
+  }
+
   return (
-    <div className="container max-w-2xl mx-auto py-8">
+    <div className="container max-w-2xl mx-auto py-8 space-y-6">
       <div className="mb-6">
         <Button
           variant="ghost"
@@ -393,10 +293,12 @@ export default function SettingsPage() {
           </Link>
         </Button>
       </div>
-      
+
+      {/* Profile Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Settings</CardTitle>
+          <CardTitle>Profile Settings</CardTitle>
+          <CardDescription>Manage your profile information and preferences</CardDescription>
         </CardHeader>
         <CardContent>
           {!supabase && (
@@ -406,15 +308,12 @@ export default function SettingsPage() {
                 <h3 className="font-medium">Database Connection Error</h3>
               </div>
               <p className="mt-1">Cannot connect to the database. Some features may not work.</p>
-              <Button 
-                className="mt-2" 
-                onClick={() => window.location.reload()}
-              >
+              <Button className="mt-2" onClick={() => window.location.reload()}>
                 Refresh Page
               </Button>
             </div>
           )}
-          
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="flex items-center gap-4">
               <div className="relative">
@@ -447,26 +346,58 @@ export default function SettingsPage() {
               <Input
                 id="full_name"
                 value={formData.full_name}
-                onChange={(e) => {
-                  const newName = e.target.value;
-                  setFormData(prev => ({ ...prev, full_name: newName }));
-                  // Update avatar fallback immediately
-                  if (!formData.avatar_url) {
-                    setPreviewUrl(null);
-                  }
-                }}
+                onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
                 required
                 disabled={!supabase}
                 placeholder="Enter your full name"
-                className="transition-all duration-200"
               />
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 This name will be displayed on ride cards and in participant lists
               </p>
             </div>
 
+            <Separator />
+
+            {/* Strava Integration */}
             <div className="space-y-2">
-              <Label htmlFor="social_url">Social Profile URL</Label>
+              <Label htmlFor="strava_url" className="flex items-center gap-2">
+                <span className="text-[#FC4C02]"><StravaIcon /></span>
+                Strava Profile
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="strava_url"
+                  type="text"
+                  value={formData.strava_url}
+                  onChange={(e) => setFormData(prev => ({ ...prev, strava_url: e.target.value }))}
+                  disabled={!supabase}
+                  placeholder="Your Strava username or profile URL"
+                  className="flex-1"
+                />
+                {formData.strava_url && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    asChild
+                  >
+                    <a
+                      href={formatStravaUrl(formData.strava_url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </Button>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Link your Strava profile so others can follow your rides
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="social_url">Other Social Profile</Label>
               <Input
                 id="social_url"
                 type="url"
@@ -474,9 +405,8 @@ export default function SettingsPage() {
                 onChange={(e) => setFormData(prev => ({ ...prev, social_url: e.target.value }))}
                 disabled={!supabase}
                 placeholder="https://twitter.com/yourusername"
-                className="transition-all duration-200"
               />
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Add a link to your social media profile (optional)
               </p>
             </div>
@@ -487,24 +417,45 @@ export default function SettingsPage() {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Saving...
                 </>
-              ) : 'Save Changes'}
+              ) : 'Save Profile'}
             </Button>
           </form>
+
           {dbStatus && (
             <div className={`mt-4 p-3 rounded-md text-sm ${dbStatus.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
               <div className="flex items-center">
                 <div className={`w-3 h-3 rounded-full mr-2 ${dbStatus.success ? 'bg-green-500' : 'bg-red-500'}`}></div>
                 <span className="font-medium">Database status:</span> {dbStatus.message}
               </div>
-              {!dbStatus.success && (
-                <p className="mt-2">
-                  Try refreshing the page or check your Supabase configuration.
-                </p>
-              )}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Teams Card */}
+      {userId && (
+        <Card>
+          <CardHeader>
+            <CardTitle>My Teams</CardTitle>
+            <CardDescription>Join riding groups to connect with other cyclists</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <GroupSelector
+              userId={userId}
+              userGroups={userGroups}
+              onGroupsChange={setUserGroups}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Notification Settings */}
+      {userId && (
+        <NotificationSettings
+          userId={userId}
+          initialSettings={notificationSettings}
+        />
+      )}
     </div>
   )
-} 
+}

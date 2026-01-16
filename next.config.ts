@@ -2,7 +2,7 @@ import withPWA from 'next-pwa'
 import { NextConfig } from 'next'
 
 const config: NextConfig = {
-  reactStrictMode: true,
+  reactStrictMode: false, // Disabled to prevent AbortError with Supabase SSR client
   images: {
     remotePatterns: [
       {
