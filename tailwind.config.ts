@@ -68,10 +68,32 @@ const config = {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' },
         },
+        'ride-appear': {
+          '0%': {
+            opacity: '0',
+            transform: 'translateY(-20px) scale(0.95)',
+          },
+          '50%': {
+            transform: 'translateY(0) scale(1.02)',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translateY(0) scale(1)',
+          },
+        },
+        'pulse-highlight': {
+          '0%, 100%': {
+            boxShadow: '0 0 0 0 rgba(59, 130, 246, 0)',
+          },
+          '50%': {
+            boxShadow: '0 0 0 8px rgba(59, 130, 246, 0.3)',
+          },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'ride-appear': 'ride-appear 0.5s ease-out forwards, pulse-highlight 1s ease-in-out 0.5s',
       },
     },
   },

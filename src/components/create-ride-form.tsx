@@ -9,10 +9,27 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { getRandomQuote, formatQuoteForRide } from '@/lib/cyclist-quotes'
-import { Quote, RefreshCw } from 'lucide-react'
+import { Quote, RefreshCw, MapPin, Navigation } from 'lucide-react'
+import { RideMap } from '@/components/ride-map'
+
+interface CreatedRide {
+  id: string
+  title: string
+  start_location: string
+  ride_time: string
+  distance: number
+  pace: string
+  bike_type: string
+  created_by: string
+  created_at: string
+  description: string
+  latitude?: number | null
+  longitude?: number | null
+  radius_km?: number | null
+}
 
 interface CreateRideFormProps {
-  onSuccess: () => void
+  onSuccess: (ride?: CreatedRide) => void
 }
 
 type TimeOfDay = 'Now' | 'Morning' | 'Afternoon' | 'Evening'
@@ -125,7 +142,7 @@ export function CreateRideForm({ onSuccess }: CreateRideFormProps) {
       if (participantError) throw participantError
 
       toast.success('Ride created successfully!')
-      onSuccess()
+      onSuccess(rideData as CreatedRide)
       router.refresh()
     } catch (error) {
       console.error('Error creating ride:', error)
@@ -148,10 +165,10 @@ export function CreateRideForm({ onSuccess }: CreateRideFormProps) {
       type="button"
       onClick={onClick}
       className={cn(
-        'flex-1 py-3 px-4 rounded-md text-sm font-medium transition-colors',
+        'flex-1 py-3 px-4 rounded-md text-sm font-medium transition-all',
         selected
-          ? 'bg-slate-100'
-          : 'border border-slate-100 hover:bg-slate-50'
+          ? 'bg-slate-900 text-white'
+          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
       )}
     >
       {children}

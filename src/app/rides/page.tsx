@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/contexts/UserContext"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import { CommunityMenu } from "@/components/community-menu"
 import { ProfileMenu } from "@/components/profile-menu"
 import { RideCard } from "@/components/ride-card"
 import { toast, Toaster } from "sonner"
+import { cn } from "@/lib/utils"
 import type { Database } from "@/lib/supabase/types"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
@@ -23,6 +24,9 @@ interface Ride {
   bike_type: string
   created_by: string
   created_at: string
+  latitude?: number | null
+  longitude?: number | null
+  radius_km?: number | null
 }
 
 type RideParticipant = Database['public']['Tables']['ride_participants']['Row']
@@ -34,6 +38,8 @@ export default function RidesPage() {
   const [rides, setRides] = useState<Ride[]>([])
   const [participants, setParticipants] = useState<RideParticipant[]>([])
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [newlyCreatedRideId, setNewlyCreatedRideId] = useState<string | null>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     try {
@@ -62,7 +68,10 @@ export default function RidesPage() {
             pace,
             bike_type,
             created_by,
-            created_at
+            created_at,
+            latitude,
+            longitude,
+            radius_km
           `)
           .order("ride_time", { ascending: true }),
         supabase
@@ -79,6 +88,9 @@ export default function RidesPage() {
       const transformedRides = (ridesData || []).map(ride => ({
         ...ride,
         distance: ride.distance.toString(),
+        latitude: ride.latitude,
+        longitude: ride.longitude,
+        radius_km: ride.radius_km,
       }))
 
       setRides(transformedRides)
@@ -99,7 +111,25 @@ export default function RidesPage() {
       .channel("rides_realtime")
       .on<Ride>(
         "postgres_changes",
-        { event: "*", schema: "public", table: "rides" },
+        { event: "INSERT", schema: "public", table: "rides" },
+        (payload) => {
+          // Set the newly created ride ID for animation
+          if (payload.new && payload.new.id) {
+            setNewlyCreatedRideId(payload.new.id)
+            // Clear the animation flag after 2 seconds
+            setTimeout(() => setNewlyCreatedRideId(null), 2000)
+          }
+          fetchRides()
+        }
+      )
+      .on<Ride>(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "rides" },
+        () => fetchRides()
+      )
+      .on<Ride>(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "rides" },
         () => fetchRides()
       )
       .subscribe()
@@ -205,9 +235,41 @@ export default function RidesPage() {
                 </SheetDescription>
               </SheetHeader>
               <CreateRideForm
-                onSuccess={() => {
+                onSuccess={(createdRide) => {
                   setSheetOpen(false)
-                  toast.info("Ride created! List will update shortly.")
+
+                  // Optimistically add the new ride to the UI immediately
+                  if (createdRide) {
+                    const newRide: Ride = {
+                      ...createdRide,
+                      distance: createdRide.distance.toString(),
+                    }
+
+                    // Add the new ride and sort by ride_time
+                    setRides(prev => {
+                      const updated = [newRide, ...prev.filter(r => r.id !== newRide.id)]
+                      return updated.sort((a, b) =>
+                        new Date(a.ride_time).getTime() - new Date(b.ride_time).getTime()
+                      )
+                    })
+
+                    // Also add current user as participant
+                    if (user) {
+                      setParticipants(prev => [
+                        ...prev,
+                        { ride_id: createdRide.id, user_id: user.id, status: 'pending', created_at: new Date().toISOString() }
+                      ])
+                    }
+
+                    // Trigger animation
+                    setNewlyCreatedRideId(createdRide.id)
+                    setTimeout(() => setNewlyCreatedRideId(null), 2000)
+                  }
+
+                  // Scroll to top to see the new ride with animation
+                  setTimeout(() => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }, 100)
                 }}
               />
             </SheetContent>
@@ -215,20 +277,27 @@ export default function RidesPage() {
         </div>
       </header>
       <main className="mx-auto max-w-5xl p-4 pb-40">
-        <div className="grid gap-4">
+        <div ref={listRef} className="grid gap-4">
           {rides.length === 0 && (
             <p className="text-center text-gray-500">No rides scheduled yet. Create one!</p>
           )}
           {rides.map((ride) => (
-            <RideCard
+            <div
               key={ride.id}
-              ride={ride}
-              currentUser={user}
-              isParticipant={isParticipant(ride.id)}
-              onJoin={handleJoinRide}
-              onLeave={handleLeaveRide}
-              onDelete={handleDeleteRide}
-            />
+              className={cn(
+                "transition-all duration-500",
+                newlyCreatedRideId === ride.id && "animate-ride-appear"
+              )}
+            >
+              <RideCard
+                ride={ride}
+                currentUser={user}
+                isParticipant={isParticipant(ride.id)}
+                onJoin={handleJoinRide}
+                onLeave={handleLeaveRide}
+                onDelete={handleDeleteRide}
+              />
+            </div>
           ))}
         </div>
       </main>

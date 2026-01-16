@@ -10,6 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { RideMapPreview } from "@/components/ride-map"
 
 interface User {
   id: string
@@ -29,6 +30,9 @@ interface Ride {
   bike_type: string
   created_by: string
   created_at: string
+  latitude?: number | null
+  longitude?: number | null
+  radius_km?: number | null
   creator?: {
     full_name: string
   }
@@ -230,8 +234,21 @@ export function RideCard({
           </Badge>
         </CardTitle>
       </CardHeader>
+
+      {/* Map Preview */}
+      {ride.latitude && ride.longitude && (
+        <div className="px-6 pb-3">
+          <RideMapPreview
+            latitude={ride.latitude}
+            longitude={ride.longitude}
+            startLocation={ride.start_location}
+            className="h-32 w-full"
+          />
+        </div>
+      )}
+
       <CardContent className="flex justify-between">
-        <div className="flex gap-3 text-s text-gray-500">
+        <div className="flex gap-3 text-s text-gray-500 flex-wrap">
           <div className="flex">
             <span>{ride.start_location}</span>
           </div>
@@ -250,15 +267,12 @@ export function RideCard({
         </div>
       </CardContent>
       <CardFooter className="flex justify-between items-center">
-        <div className="flex -space-x-2 flex-wrap gap-y-2">
+        <div className="flex -space-x-2 overflow-hidden">
           {participants.map((participant) => (
-            <div key={participant.id} className="flex items-center gap-2">
-              <Avatar>
-                <AvatarImage src={participant.avatar_url || ''} />
-                <AvatarFallback>{participant.full_name?.[0] || participant.email[0]}</AvatarFallback>
-              </Avatar>
-              <div className="text-sm">{participant.full_name || participant.email}</div>
-            </div>
+            <Avatar key={participant.id} className="h-8 w-8 border-2 border-background">
+              <AvatarImage src={participant.avatar_url || ''} className="object-cover" />
+              <AvatarFallback className="text-xs">{participant.full_name?.[0] || participant.email[0]}</AvatarFallback>
+            </Avatar>
           ))}
         </div>
         <div className="flex gap-2">

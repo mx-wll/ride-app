@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { Check, Users, Bike, Mountain, Zap, Trophy, Heart } from 'lucide-react'
+import { Check, Users, Bike, Mountain, Zap, Trophy, Heart, Plus, X, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Group {
@@ -68,10 +69,20 @@ export function GroupSelector({ userId, userGroups: initialGroups, onGroupsChang
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
+  const [newTeamName, setNewTeamName] = useState('')
+  const [isSubmittingNew, setIsSubmittingNew] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchGroups()
   }, [])
+
+  useEffect(() => {
+    if (isCreating && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [isCreating])
 
   useEffect(() => {
     setSelectedGroups(new Set(initialGroups))
@@ -107,6 +118,48 @@ export function GroupSelector({ userId, userGroups: initialGroups, onGroupsChang
       }
       return next
     })
+  }
+
+  const createTeam = async () => {
+    if (!newTeamName.trim()) {
+      toast.error('Please enter a team name')
+      return
+    }
+
+    const supabase = createClient()
+    if (!supabase) return
+
+    setIsSubmittingNew(true)
+    try {
+      // Create the new group
+      const { data: newGroup, error: createError } = await supabase
+        .from('groups')
+        .insert({ name: newTeamName.trim() })
+        .select()
+        .single()
+
+      if (createError) throw createError
+
+      // Add the new group to the list and auto-select it
+      setGroups(prev => [...prev, newGroup].sort((a, b) => a.name.localeCompare(b.name)))
+      setSelectedGroups(prev => new Set([...prev, newGroup.id]))
+
+      // Reset the form
+      setNewTeamName('')
+      setIsCreating(false)
+
+      toast.success(`Team "${newGroup.name}" created!`)
+    } catch (error) {
+      console.error('Error creating team:', error)
+      toast.error('Failed to create team')
+    } finally {
+      setIsSubmittingNew(false)
+    }
+  }
+
+  const cancelCreate = () => {
+    setIsCreating(false)
+    setNewTeamName('')
   }
 
   const saveGroups = async () => {
@@ -224,11 +277,80 @@ export function GroupSelector({ userId, userGroups: initialGroups, onGroupsChang
                   </Card>
                 )
               })}
+
+              {/* Create Team Card */}
+              <Card
+                className={cn(
+                  'transition-all duration-200',
+                  'border-2 border-dashed relative overflow-hidden',
+                  isCreating
+                    ? 'border-primary col-span-2'
+                    : 'border-muted-foreground/30 hover:border-primary/50 cursor-pointer hover:scale-105'
+                )}
+                onClick={() => !isCreating && setIsCreating(true)}
+              >
+                <CardContent className="p-4">
+                  {isCreating ? (
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
+                        <Plus className="h-5 w-5" />
+                      </div>
+                      <Input
+                        ref={inputRef}
+                        type="text"
+                        placeholder="Enter team name..."
+                        value={newTeamName}
+                        onChange={(e) => setNewTeamName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') createTeam()
+                          if (e.key === 'Escape') cancelCreate()
+                        }}
+                        className="flex-1"
+                        disabled={isSubmittingNew}
+                      />
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          createTeam()
+                        }}
+                        disabled={isSubmittingNew || !newTeamName.trim()}
+                      >
+                        {isSubmittingNew ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          cancelCreate()
+                        }}
+                        disabled={isSubmittingNew}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-full bg-muted text-muted-foreground">
+                        <Plus className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-muted-foreground">Create Team</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
-            {groups.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                No teams available yet
+            {groups.length === 0 && !isCreating && (
+              <div className="text-center py-4 text-muted-foreground">
+                No teams yet — create your first one!
               </div>
             )}
 
